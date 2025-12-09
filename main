@@ -1,0 +1,95 @@
+from random import *
+from enum import Enum
+
+class PlayerData:
+    def __init__(self, name, adress):
+        self.name = name
+        self.id
+        self.adress = adress
+        self.port
+        
+
+
+
+
+class Choice:
+    def __init__(self, type, plys, strs, instruct):
+        self.id = "choix" + str(randint(0, 1000))
+        
+        self.type = type
+        """
+        type = 1 -> choix de joueur, ne pas considérer la liste str
+        type = 2 -> choix str parmis proposés (4 max)
+        type = 3 -> choix booléan
+        
+        """
+        self.receipt = {plys[i].name: False for i in len(plys)}
+        self.answer = {plys[i].name: "" for i in len(plys)}
+        
+    def run(self):
+        pass
+
+    def getAnswers(self):
+        return self.answer
+        
+        
+
+
+
+
+
+
+
+
+
+class Game:
+    def __init__(self, id, plys, roles, statuts):
+        self.id = id
+        self.plys = plys
+        self.plysData = {}
+        self.roles = {}
+        self.statuts = {}
+        self.nightNb = 1
+        
+        rolesLists = {1: ["Diablotin"]; 2: ["Diablotin", "Enquêteur"]}
+        
+        
+    def chat(self, players, str, isFromSystem, fromPlayer = ""):
+        pass
+        
+        
+    def start(self):
+        chat(self.plys, "La partie commence: ", True, "")
+        chat(self.plys, "Attribution des rôles ", True, "")
+        
+        
+        #distribution des rôles
+        rolesCopie = rolesLists[len(plys)]
+        for ply in plys:
+            x = randint(0, len(rolesCopie) - 1)
+            self.roles[ply.name] = rolesCopie[x]
+            chat([ply], ("Vous êtes" + self.roles[ply.name]), False, "")
+            rolesCopie.remove(x)
+            
+        night(self.nightNb)
+    
+    
+    def night(self):
+        
+        
+        
+        
+        
+        
+        
+        self.nightNb = self.nightNb + 1
+        
+    
+    def day(self):
+        pass
+    
+    def vote(self):
+        pass
+    
+    
+        
