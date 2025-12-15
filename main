@@ -1,5 +1,6 @@
 from random import *
 from enum import Enum
+import time 
 
 class PlayerData:
     def __init__(self, name, adress):
@@ -17,6 +18,10 @@ class Choice:
         self.id = "choix" + str(randint(0, 1000))
         
         self.type = type
+        self.plys = plys
+        self.strs = strs
+        self.instruct = instruct
+        
         """
         type = 1 -> choix de joueur, ne pas considérer la liste str
         type = 2 -> choix str parmis proposés (4 max)
@@ -41,7 +46,6 @@ class Choice:
 
 
 
-
 class Game:
     def __init__(self, id, plys, roles, statuts):
         self.id = id
@@ -50,8 +54,13 @@ class Game:
         self.roles = {}
         self.statuts = {}
         self.nightNb = 1
+        self.finished = False
+        self.choices = []
+        self.choice = []
         
         rolesLists = {1: ["Diablotin"]; 2: ["Diablotin", "Enquêteur"]}
+        self.schedule = {}
+        
         
         
     def chat(self, players, str, isFromSystem, fromPlayer = ""):
@@ -59,37 +68,124 @@ class Game:
         
         
     def start(self):
-        chat(self.plys, "La partie commence: ", True, "")
-        chat(self.plys, "Attribution des rôles ", True, "")
+        self.chat(self.plys, "La partie commence: ", True, "")
+        self.chat(self.plys, "Attribution des rôles ", True, "")
         
         
         #distribution des rôles
-        rolesCopie = rolesLists[len(plys)]
+        rolesCopie = self.rolesLists[len(plys)]
         for ply in plys:
             x = randint(0, len(rolesCopie) - 1)
-            self.roles[ply.name] = rolesCopie[x]
-            chat([ply], ("Vous êtes" + self.roles[ply.name]), False, "")
+            self.roles[ply] = rolesCopie[x]
+            self.chat([ply], ("Vous êtes" + self.roles[ply]), False, "")
             rolesCopie.remove(x)
             
-        night(self.nightNb)
+            
+        
+    
+        self.night(self.nightNb)
+        
+        while (!self.finished):
+            for k in self.schedule.keys():
+                if time() - k > self.schedule[k][0]:
+                    if self.schedule[k][1] == "night":
+                        self.night()
+                    elif self.schedule[k][1] == "day":
+                        self.day()
+                    elif self.schedule[k][1] == "vote":
+                        self.vote()
+                    elif self.schedule[k][1] == "voteEnd":
+                        self.endVote(self.schedule[k][2])
+                    
+    
+    
+    
+    
+   
+    def nightAct(role, ply):
+        pass
+    
+    
     
     
     def night(self):
         
-        
-        
-        
-        
-        
-        
+        for ply in self.plys:
+            self.nightAct(self.roles[ply], ply)
+            
         self.nightNb = self.nightNb + 1
+        self.schedule[time()] = (120, "day", self.nightNb)
         
+    
+    def morningAct:
+        pass 
+    
     
     def day(self):
-        pass
+        
+        self.chat(self.plys, "le jour se lève et les joueurs suivants sont morts ", True, "")
+        for st in self.statuts.keys():
+            if not self.statuts[st];
+                chat(self.plys, st, True, "")
+        
+        for ply in self.plys:
+            self.morningAct(self.roles[ply], ply)
+    
+        self.schedule[time()] = (120, "vote", self.nightNb)
+        
+            
+        
+        
+        
+    def getChoice(self, id):
+        for c in self.choices:
+            if c.id == id:
+                return c
     
     def vote(self):
+        
+        self.chat(self.plys, "Les votes commencent, veuillez choisir qui mourra ce matin: ", True, "")
+        
+        votes = Choice(1, self.plys, [], "Choisissez un joueur à éliminer")
+        votes.run()
+        
+        self.choices.append(votes)
+        self.schedule[time()] = (120, "VoteEnd", votes.id)
+        
+        
+        
+    def onDied(self, ply):
         pass
-    
+        
+    def endVote(self, id):
+        voted = {}
+        for k in getChoice(id).answer.keys():
+            if not voted[getChoice(id).answer[k]]==null:
+                voted[getChoice(id).answer[k]] = voted[getChoice(id).answer[k]] + 1
+            else:
+                voted[getChoice(id).answer[k]] = 1
+                
+                
+        mostVoted = ""
+        for ply in self.plys:
+            if mostVoted == "" or voted[ply] > voted[mostVoted]:
+                mostVoted = ply
+                
+                
+        self.chat(self.plys, ("Les votes se finissent: ainsi le joueur exécuté sera: "+mostVoted), True, "")
+        self.statuts[ply] = False
+        self.onDied(ply)
+        
+        if roles[ply] == "Diablotin":
+            self.chat(self.plys, (mostVoted+ " était diablotin, les citadins ont gagnés"), True, "")
+            self.finished = true
+            
+            
+        wonByD = True
+        #Calculer si diable a gagné
+        
+        self.nightNb = self.nightNb + 1
+        self.night()
+        
     
         
