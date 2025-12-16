@@ -1,14 +1,105 @@
 from random import *
 from enum import Enum
-import time 
+import time
+
+
+
+roleDes= {"Diablotin":"Le Diablotin est le chef des Démons. Chaque nuit, il choisit de tuer quelqu'un. Il est mis au courant de trois rôles qui ne sont pas présents dans la partie. Si le Diablotin meurt, les Citadins gagnent. Mais s'il décide de se viser lui-même la nuit, il meurt et un Sbire choisi aléatoirement (la Femme Écarlate est prioritaire) devient alors le nouveau Diablotin.",
+
+
+"Baron":"Si le Baron est en jeu, deux rôles Étrangers sont automatiquement ajoutés à la composition.",
+
+
+"Empoisonneur":"Chaque nuit, l'Empoisonneur empoisonne un joueur. Durant cette nuit et cette journée, le joueur empoisonné recevra des informations erronées ",
+
+
+"Espion":"L'Espion apparaît comme Citadin dans n'importe quelle situation. La première nuit, il reçoit les rôles de TOUS les joueurs.",
+
+
+"Femme ecarlate":"Si cinq joueurs (ou plus) sont encore en vie à la mort du Diablotin, la Femme Écarlate devient Diablotin à sa place.",
+
+
+"Archivite":"La première nuit, deux joueurs ainsi qu'un rôle Étranger spécifique sont indiqués à l'Archiviste. Parmi ces deux joueurs se trouve ce rôle Étranger.",
+
+
+"Croque-mort":"Si le Croque-Mort meurt la nuit, il se réveille alors pour désigner un joueur dont il apprendra l'identité. Il peut désigner un joueur mort.",
+
+
+"Cuistot":"La première nuit, le Chef est mis au courant du nombre de \"paires\" de Démons autour de la table. Est considérée comme \"paire\" : deux Démons côte à côte. Si trois Démons sont d'affilée, alors il y a deux paires. Si aucun Démon n'est à côté d'un autre, alors il y a 0 paire.",
+
+
+"Empathe":"Chaque nuit, l'Empathe apprend le nombre de Méchants directement à côté d'elle (0, 1 ou 2). Les joueurs morts ne sont pas pris en compte.",
+
+
+"Enqueteur":"La première nuit, deux joueurs ainsi qu'un rôle Sbire spécifique sont indiqués à l'Enquêteur. Parmi ces deux joueurs se trouve ce rôle Sbire.",
+
+
+"Fossoyeur":"Chaque nuit, si un joueur a été exécuté au vote lors de cette journée, le Fossoyeur apprendra l'identité de l'exécuté. Si le joueur exécuté était l'Ivrogne, le Fossoyeur verra le rôle d'Ivrogne et non le faux rôle attribué.",
+
+
+"Lavandiere":"La première nuit, deux joueurs ainsi qu'un rôle Citadin spécifique sont indiqués à la Lavandière. Parmi ces deux joueurs se trouve ce rôle Citadin.",
+
+
+"Maire":"Si le Maire est ciblé par le Diablotin la nuit, un autre joueur PEUT (selon le bon vouloir du MJ) mourir à sa place. Aussi, lorsqu'il reste trois joueurs en vie, si la journée se termine sans exécution, la partie se termine instantanément sur une victoire des Citadins.",
+
+
+"Moine":"Chaque nuit, le Moine choisit un joueur autre que lui-même. Ce joueur ne peut pas mourir par le Démon cette nuit. Il peut choisir le même joueur plusieurs fois d'affilée",
+
+
+"Pourfendeur":"Une fois par partie, pendant la journée, le Pourfendeur peut désigner une cible aux yeux de tous. Si cette cible est le Diablotin, le Diablotin meurt. Si cette cible n'est pas le Diablotin, rien ne se passe.",
+
+
+"Soldat":"Le Soldat ne peut pas mourir du Diablotin la nuit. S'il est ciblé, rien ne se passe.",
+
+
+"Vierge":"Si la Vierge est nommée au vote et que le joueur qui l'a designée est un Citadin (Étrangers exclus), ce joueur est instantanément exécuté. Cette situation ne peut se produire qu'une fois.",
+
+
+"Voyante":"Chaque nuit, la Voyante choisit deux joueurs. Elle apprendra alors si le Diablotin se trouve parmi les deux. Cependant, l'un des Citadins (appelé le \"Leurre\"), choisi aléatoirement en début de partie par le MJ, apparaîtra comme Diablotin pour elle tout au long de la partie. Elle peut se choisir elle-même ainsi que des joueurs morts.",
+
+
+"Ivrogne":"L'Ivrogne ne sait pas qu'il l'est. Il croit être un rôle Citadin tout le long, mais ses pouvoirs sont en réalité inexistants. S'il se croit rôle à info, à chaque fois qu'il reçoit ses infos, le MJ lui en donne des aléatoires, Pour les autres rôles à info, il apparaît comme étant le rôle faussement attribué et non comme l'Ivrogne (sauf pour l'Archiviste et le Fossoyeur).",
+
+"Majordome":"Chaque nuit, il désigne son Maître. Il ne pourra voter QUE si son Maître décide de voter.",
+
+
+"Reclut":"À chaque action effectuée sur le Reclus, le Reclus PEUT apparaître comme un rôle totalement aléatoire. Il PEUT donc apparaître comme Démon aux yeux des rôles à info.",
+
+
+"Saint":"Si le Saint est exécuté au vote, les Citadins perdent instantanément la partie."}
+
+
+RoleCamps={
+    "Diablotin":"Sbire",
+    "Baron":"Sbire",
+    "Empoisonneur":"Sbire",
+    "Espion":"Sbire",
+    "Femme ecarlate":"Sbire",
+    "Archiviste":"Citadin",
+    "Croque-mort":"Citadin",
+    "Cuistot":"Citadin",
+    "Empathe":"Citadin",
+    "Enqueteur":"Citadin",
+    "Fossoyeur":"Citadin",
+    "Lavandiere":"Citadin",
+    "Maire":"Citadin",
+    "Moine":"Citadin",
+    "Pourfendeur":"Citadin",
+    "Soldat":"Citadin",
+    "Vierge":"Citadin",
+    "Voyante":"Citadin",
+    "Ivrogne":"Etranger",
+    "Majordome":"Etranger",
+    "Reclus":"Etranger",
+    "Saint":"Etranger"}
 
 class PlayerData:
     def __init__(self, name, adress):
         self.name = name
-        self.id
+        self.id = randint(0, 100000)
         self.adress = adress
         self.port
-        
+
 
 
 
@@ -16,28 +107,28 @@ class PlayerData:
 class Choice:
     def __init__(self, type, plys, strs, instruct):
         self.id = "choix" + str(randint(0, 1000))
-        
+
         self.type = type
         self.plys = plys
         self.strs = strs
         self.instruct = instruct
-        
+
         """
         type = 1 -> choix de joueur, ne pas considérer la liste str
         type = 2 -> choix str parmis proposés (4 max)
         type = 3 -> choix booléan
-        
+
         """
         self.receipt = {plys[i].name: False for i in len(plys)}
         self.answer = {plys[i].name: "" for i in len(plys)}
-        
+
     def run(self):
         pass
 
     def getAnswers(self):
         return self.answer
-        
-        
+
+
 
 
 
@@ -57,21 +148,34 @@ class Game:
         self.finished = False
         self.choices = []
         self.choice = []
-        
-        rolesLists = {1: ["Diablotin"]; 2: ["Diablotin", "Enquêteur"]}
+        self.startWant = {}
+
+
+        rolesLists = {1: ["Diablotin"], 2: ["Diablotin", "Enquêteur"]}
         self.schedule = {}
-        
-        
-        
+
+
+
     def chat(self, players, str, isFromSystem, fromPlayer = ""):
         pass
-        
-        
+
+    def join(name, adress):
+        for ply in plys:
+            if self.plysData[ply].adress == adress:
+                return
+            else:
+                self.plys.append(name)
+                self.plysData[name] = PlayerData(name, adress)
+                self.startWant[name] = False
+
+
+
+
     def start(self):
         self.chat(self.plys, "La partie commence: ", True, "")
         self.chat(self.plys, "Attribution des rôles ", True, "")
-        
-        
+
+
         #distribution des rôles
         rolesCopie = self.rolesLists[len(plys)]
         for ply in plys:
@@ -79,13 +183,13 @@ class Game:
             self.roles[ply] = rolesCopie[x]
             self.chat([ply], ("Vous êtes" + self.roles[ply]), False, "")
             rolesCopie.remove(x)
-            
-            
-        
-    
+
+
+
+
         self.night(self.nightNb)
-        
-        while (!self.finished):
+
+        while not self.finished:
             for k in self.schedule.keys():
                 if time() - k > self.schedule[k][0]:
                     if self.schedule[k][1] == "night":
@@ -96,96 +200,103 @@ class Game:
                         self.vote()
                     elif self.schedule[k][1] == "voteEnd":
                         self.endVote(self.schedule[k][2])
-                    
-    
-    
-    
-    
-   
+
+
+
+
+
+
     def nightAct(role, ply):
         pass
-    
-    
-    
-    
+
+
+
+
     def night(self):
-        
+
         for ply in self.plys:
             self.nightAct(self.roles[ply], ply)
-            
+
         self.nightNb = self.nightNb + 1
         self.schedule[time()] = (120, "day", self.nightNb)
-        
-    
-    def morningAct:
-        pass 
-    
-    
+
+
+    def morningAct(self):
+        pass
+
+
     def day(self):
-        
+
         self.chat(self.plys, "le jour se lève et les joueurs suivants sont morts ", True, "")
         for st in self.statuts.keys():
-            if not self.statuts[st];
+            if not self.statuts[st]:
                 chat(self.plys, st, True, "")
-        
+
         for ply in self.plys:
             self.morningAct(self.roles[ply], ply)
-    
+
         self.schedule[time()] = (120, "vote", self.nightNb)
-        
-            
-        
-        
-        
+
+
+
+
+
     def getChoice(self, id):
         for c in self.choices:
             if c.id == id:
                 return c
-    
+
     def vote(self):
-        
+
         self.chat(self.plys, "Les votes commencent, veuillez choisir qui mourra ce matin: ", True, "")
-        
+
         votes = Choice(1, self.plys, [], "Choisissez un joueur à éliminer")
         votes.run()
-        
+
         self.choices.append(votes)
         self.schedule[time()] = (120, "VoteEnd", votes.id)
-        
-        
-        
+
+
+
     def onDied(self, ply):
         pass
-        
+
     def endVote(self, id):
+        global RoleCamps
         voted = {}
-        for k in getChoice(id).answer.keys():
-            if not voted[getChoice(id).answer[k]]==null:
-                voted[getChoice(id).answer[k]] = voted[getChoice(id).answer[k]] + 1
+        for k in self.getChoice(id).answer.keys():
+            if not voted[self.getChoice(id).answer[k]]==null:
+                voted[self.getChoice(id).answer[k]] = voted[self.getChoice(id).answer[k]] + 1
             else:
-                voted[getChoice(id).answer[k]] = 1
-                
-                
+                voted[self.getChoice(id).answer[k]] = 1
+
+
         mostVoted = ""
         for ply in self.plys:
             if mostVoted == "" or voted[ply] > voted[mostVoted]:
                 mostVoted = ply
-                
-                
+
+
         self.chat(self.plys, ("Les votes se finissent: ainsi le joueur exécuté sera: "+mostVoted), True, "")
         self.statuts[ply] = False
         self.onDied(ply)
-        
-        if roles[ply] == "Diablotin":
+
+        if self.roles[ply] == "Diablotin":
             self.chat(self.plys, (mostVoted+ " était diablotin, les citadins ont gagnés"), True, "")
             self.finished = true
-            
-            
+
+
         wonByD = True
-        #Calculer si diable a gagné
-        
+        for p in self.plys:
+            if not RoleCamps[self.roles[p]] == "Sbire":
+                wonByD = False
+
+        if wonByD:
+            self.chat(self.plys, ("Il ne reste plus de citadin, les sbire ont gagnés"), True, "")
+            self.finished = true
+
+
         self.nightNb = self.nightNb + 1
         self.night()
-        
-    
-        
+
+
