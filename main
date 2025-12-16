@@ -94,11 +94,11 @@ RoleCamps={
     "Saint":"Etranger"}
 
 class PlayerData:
-    def __init__(self, name, adress):
+    def __init__(self, name, adress, port):
         self.name = name
         self.id = randint(0, 100000)
         self.adress = adress
-        self.port
+        self.port = port
 
 
 
@@ -148,7 +148,6 @@ class Game:
         self.finished = False
         self.choices = []
         self.choice = []
-        self.startWant = {}
 
 
         rolesLists = {1: ["Diablotin"], 2: ["Diablotin", "Enquêteur"]}
@@ -159,14 +158,13 @@ class Game:
     def chat(self, players, str, isFromSystem, fromPlayer = ""):
         pass
 
-    def join(name, adress):
+    def join(name, adress, port):
         for ply in plys:
-            if self.plysData[ply].adress == adress:
+            if self.plysData[ply].adress == adress and self.plysData[ply].port == port:
                 return
             else:
                 self.plys.append(name)
-                self.plysData[name] = PlayerData(name, adress)
-                self.startWant[name] = False
+                self.plysData[name] = PlayerData(name, adress, port)
 
 
 
