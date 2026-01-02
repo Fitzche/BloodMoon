@@ -1,8 +1,9 @@
 from random import *
 from enum import Enum
 import time
-
-
+import socket
+import json
+import threading
 
 roleDes= {"Diablotin":"Le Diablotin est le chef des Démons. Chaque nuit, il choisit de tuer quelqu'un. Il est mis au courant de trois rôles qui ne sont pas présents dans la partie. Si le Diablotin meurt, les Citadins gagnent. Mais s'il décide de se viser lui-même la nuit, il meurt et un Sbire choisi aléatoirement (la Femme Écarlate est prioritaire) devient alors le nouveau Diablotin.",
 
@@ -94,24 +95,28 @@ RoleCamps={
     "Saint":"Etranger"}
 
 class PlayerData:
-    def __init__(self, name, adress, port):
+    def __init__(self, name, adress, port, socket):
         self.name = name
         self.id = randint(0, 100000)
         self.adress = adress
         self.port = port
+        self.socket = socket
+
+
 
 
 
 
 
 class Choice:
-    def __init__(self, type, plys, strs, instruct):
+    def __init__(self, type, plys, strs, instruct, time):
         self.id = "choix" + str(randint(0, 1000))
 
         self.type = type
         self.plys = plys
         self.strs = strs
         self.instruct = instruct
+        self.time = time
 
         """
         type = 1 -> choix de joueur, ne pas considérer la liste str
@@ -122,8 +127,25 @@ class Choice:
         self.receipt = {plys[i].name: False for i in len(plys)}
         self.answer = {plys[i].name: "" for i in len(plys)}
 
+
+
+    def to_dict(self):
+        """Convertit l'objet en dictionnaire pour le JSON"""
+        return {
+            "action": "choice",
+            "id": self.id,
+            "type": self.type,
+            "instruct": self.instruct,
+            "timeout": self.time
+        }
+
     def run(self):
-        pass
+        data = self.to_dict()
+        json_data = json.dumps(data)
+        for p in self.plys:
+            p.socket.send(json_data.encode('utf-8'))
+
+
 
     def getAnswers(self):
         return self.answer
@@ -138,16 +160,22 @@ class Choice:
 
 
 class Game:
-    def __init__(self, id, plys, roles, statuts):
+    def __init__(self, id, connected_clients):
         self.id = id
-        self.plys = plys
         self.plysData = {}
+        for name, sock in connected_clients.items():
+            # On récupère l'adresse IP pour les logs (optionnel)
+            addr = sock.getpeername()[0]
+            self.plysData[name] = PlayerData(name, sock, addr)
+
+        self.plys = list(self.plysData.keys())  # Liste des noms pour itérer facilement
+        self.finished = False
         self.roles = {}
         self.statuts = {}
         self.nightNb = 1
-        self.finished = False
+
         self.choices = []
-        self.choice = []
+        self.roleChoice = {}
 
 
         rolesLists = {1: ["Diablotin"], 2: ["Diablotin", "Enquêteur"]}
@@ -155,16 +183,33 @@ class Game:
 
 
 
-    def chat(self, players, str, isFromSystem, fromPlayer = ""):
-        pass
 
-    def join(name, adress, port):
+
+    def to_chatDict(self, str, isFromSystem, fromPlayer = ""):
+        """Convertit l'objet en dictionnaire pour le JSON"""
+        return {
+            "action": "chat",
+            "str": str,
+            "fromPlayer": fromPlayer
+
+        }
+
+
+    def chat(self, players, str, isFromSystem, fromPlayer = ""):
+       for p in players:
+           #ici j'ai refait pareil que l'envoie de donnée dans Choice mais en une seule ligne histoire d'économiser
+
+           if p in self.plysData:
+                self.plysData[p].socket.send(json.dumps(self.to_chatDict(str, isFromSystem, fromPlayer)).encode('utf-8'))
+
+
+    def join(name, adress, port, socket):
         for ply in plys:
             if self.plysData[ply].adress == adress and self.plysData[ply].port == port:
                 return
             else:
                 self.plys.append(name)
-                self.plysData[name] = PlayerData(name, adress, port)
+                self.plysData[name] = PlayerData(name, adress, port, socket)
 
 
 
@@ -182,6 +227,8 @@ class Game:
             self.chat([ply], ("Vous êtes" + self.roles[ply]), False, "")
             rolesCopie.remove(x)
 
+            self.statuts[ply] = True
+
 
 
 
@@ -198,6 +245,7 @@ class Game:
                         self.vote()
                     elif self.schedule[k][1] == "voteEnd":
                         self.endVote(self.schedule[k][2])
+
 
 
 
@@ -226,9 +274,9 @@ class Game:
     def day(self):
 
         self.chat(self.plys, "le jour se lève et les joueurs suivants sont morts ", True, "")
-        for st in self.statuts.keys():
+        for name in self.statuts.keys():
             if not self.statuts[st]:
-                chat(self.plys, st, True, "")
+                chat(self.plys, name, True, "")
 
         for ply in self.plys:
             self.morningAct(self.roles[ply], ply)
@@ -298,3 +346,92 @@ class Game:
         self.night()
 
 
+
+
+
+class ServerLobby:
+    def __init__(self, host='0.0.0.0', port=5555):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.bind((host, port))
+        self.sock.listen(15)  # On autorise jusqu'à 15 connexions en attente
+
+        self.clients = {}  # format: { "NomJoueur": socket_objet }
+        self.is_accepting = True
+        print(f"Lobby ouvert sur {host}:{port}. En attente de joueurs...")
+
+    def listen_for_connections(self):
+
+        while self.is_accepting:
+            try:
+                # On accepte une nouvelle connexion
+                conn, addr = self.sock.accept()
+
+                # Le client doit envoyer son nom immédiatement après la connexion
+                data = conn.recv(1024).decode('utf-8')
+                player_info = json.loads(data)
+                player_name = player_info.get("name", f"Inconnu_{addr[1]}")
+
+                if player_name in self.clients:
+                    # Erreur si le nom est déjà pris
+                    conn.send(json.dumps({"status": "error", "message": "Nom déjà pris"}).encode())
+                    conn.close()
+                else:
+                    self.clients[player_name] = conn
+                    print(f"[NOUVEAU] {player_name} s'est connecté ({addr[0]})")
+
+                    # On confirme au joueur qu'il est bien dans le lobby
+                    conn.send(json.dumps({"status": "success", "message": "Bienvenue dans le salon d'attente de Blood on the Clocktower"}).encode())
+
+                    # (Optionnel) Notifier les autres qu'un joueur a rejoint
+                    self.broadcast_system(f"{player_name} a rejoint le salon d'attente.")
+
+            except Exception as e:
+                if self.is_accepting:
+                    print(f"Erreur connexion: {e}")
+                break
+
+    def broadcast_system(self, text):
+        """Envoie un message de service à tout le monde."""
+        msg = json.dumps({"action": "chat", "isSystem": True, "content": text})
+        for c in self.clients.values():
+            try:
+                c.send(msg.encode())
+            except:
+                pass
+
+    def stop_accepting(self):
+        """Ferme les portes du lobby une fois la partie lancée."""
+        self.is_accepting = False
+        # On ne ferme pas la socket principale ici pour garder les joueurs,
+        # mais on arrête la boucle accept()
+
+
+
+
+# --- Initialisation ---
+lobby = ServerLobby()
+
+# On lance l'écoute dans un thread pour ne pas bloquer le terminal
+thread_connexion = threading.Thread(target=lobby.listen_for_connections, daemon=True)
+thread_connexion.start()
+
+# --- Phase d'attente ---
+while True:
+    cmd = input("Tapez 'start' pour lancer la partie ou 'list' pour voir les joueurs : \n")
+
+    if cmd == "list":
+        print(f"Joueurs connectés ({len(lobby.clients)}) : {list(lobby.clients.keys())}")
+
+    elif cmd == "start":
+        if len(lobby.clients) < 5:  # Exemple: minimum 5 joueurs pour BotC
+            print("Pas assez de joueurs pour commencer.")
+            continue
+
+        print("Lancement de la partie...")
+        lobby.stop_accepting()  # On n'accepte plus de nouveaux entrants
+        break
+
+# --- Initialisation de la game ---
+
+play = Game(id=1, clients=lobby.clients)
+play.start()
