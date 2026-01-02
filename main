@@ -175,7 +175,7 @@ class Game:
         self.nightNb = 1
 
         self.choices = []
-        self.roleChoice = {}
+        self.roleChoiceId = {}
 
 
         rolesLists = {1: ["Diablotin"], 2: ["Diablotin", "Enquêteur"]}
@@ -185,22 +185,23 @@ class Game:
 
 
 
-    def to_chatDict(self, str, isFromSystem, fromPlayer = ""):
+    def to_chatDict(self, str, isFromSystem, fromPlayer = "", private = False):
         """Convertit l'objet en dictionnaire pour le JSON"""
         return {
             "action": "chat",
             "str": str,
-            "fromPlayer": fromPlayer
+            "fromPlayer": fromPlayer,
+            "private": private
 
         }
 
 
-    def chat(self, players, str, isFromSystem, fromPlayer = ""):
+    def chat(self, players, str, isFromSystem, fromPlayer = "", private = False):
        for p in players:
            #ici j'ai refait pareil que l'envoie de donnée dans Choice mais en une seule ligne histoire d'économiser
 
            if p in self.plysData:
-                self.plysData[p].socket.send(json.dumps(self.to_chatDict(str, isFromSystem, fromPlayer)).encode('utf-8'))
+                self.plysData[p].socket.send(json.dumps(self.to_chatDict(str, isFromSystem, fromPlayer, private)).encode('utf-8'))
 
 
     def join(name, adress, port, socket):
@@ -212,6 +213,44 @@ class Game:
                 self.plysData[name] = PlayerData(name, adress, port, socket)
 
 
+
+    def handle_client_messages(self, player_name, conn):
+        while True:
+            try:
+                data = conn.recv(2048).decode('utf-8')
+                if not data: break
+
+                msg_data = json.loads(data)
+
+                #on traite que les messages de type "chat"
+                if msg_data.get("type") == "chat":
+                    content = msg_data.get("content", "")
+
+                    # --- Logique de message privés ---
+                    if content.startswith("/"):
+                        #on sépare le premier mot
+                        parts = content.split(" ", 1)
+                        target_name = parts[0][1:]  # On enlève le "/"
+
+                        if target_name in self.plysData:
+                            message_prive = parts[1] if len(parts) > 1 else "..."
+
+                            #envoie le message aux deux joueurs
+                            self.chat([target_name], message_prive, False, fromPlayer=f"(Privé) {player_name}")
+                            self.chat([player_name], message_prive, False, fromPlayer=f"À {target_name}")
+                        else:
+                            self.chat([player_name], f"Joueur {target_name} introuvable.", True)
+
+                    # si pas privé public
+                    else:
+                        #envoyer à tout le monde
+                        self.chat(self.plys, content, False, fromPlayer=player_name)
+
+                elif msg_data.get("type") == "choiceAnswer":
+                    self.getChoice(msg_data.get("id")).answer[player_name] = msg_data.get("answer")
+
+            except:
+                break
 
 
     def start(self):
@@ -229,7 +268,11 @@ class Game:
 
             self.statuts[ply] = True
 
-
+        # Lancer l'écoute pour chaque joueur
+        for name in self.plys:
+            t = threading.Thread(target=self.handle_client_messages, args=(name, self.plysData[name].socket))
+            t.daemon = True  # Le thread meurt si le programme principal s'arrête
+            t.start()
 
 
         self.night(self.nightNb)
@@ -433,5 +476,5 @@ while True:
 
 # --- Initialisation de la game ---
 
-play = Game(id=1, clients=lobby.clients)
-play.start()
+mon_jeu = Game(id=1, clients=lobby.clients)
+mon_jeu.start()
