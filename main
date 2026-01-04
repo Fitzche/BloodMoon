@@ -5,6 +5,8 @@ import socket
 import json
 import threading
 
+
+
 roleDes= {"Diablotin":"Le Diablotin est le chef des Démons. Chaque nuit, il choisit de tuer quelqu'un. Il est mis au courant de trois rôles qui ne sont pas présents dans la partie. Si le Diablotin meurt, les Citadins gagnent. Mais s'il décide de se viser lui-même la nuit, il meurt et un Sbire choisi aléatoirement (la Femme Écarlate est prioritaire) devient alors le nouveau Diablotin.",
 
 
@@ -141,7 +143,7 @@ class Choice:
 
     def run(self):
         data = self.to_dict()
-        json_data = json.dumps(data)
+        json_data = json.dumps(data)+ "\n"
         for p in self.plys:
             p.socket.send(json_data.encode('utf-8'))
 
@@ -164,11 +166,12 @@ class Game:
         self.id = id
         self.plysData = {}
         for name, sock in connected_clients.items():
-            # On récupère l'adresse IP pour les logs (optionnel)
-            addr = sock.getpeername()[0]
-            self.plysData[name] = PlayerData(name, sock, addr)
 
-        self.plys = list(self.plysData.keys())  # Liste des noms pour itérer facilement
+            addr, port = sock.getpeername()
+
+            self.plysData[name] = PlayerData(name, addr, port, sock)
+
+        self.plys = list(self.plysData.keys())
         self.finished = False
         self.roles = {}
         self.statuts = {}
@@ -178,7 +181,7 @@ class Game:
         self.roleChoiceId = {}
 
 
-        rolesLists = {1: ["Diablotin"], 2: ["Diablotin", "Enquêteur"]}
+        self.rolesLists = {1: ["Diablotin"], 2: ["Diablotin", "Enquêteur"]}
         self.schedule = {}
 
 
@@ -189,7 +192,7 @@ class Game:
         """Convertit l'objet en dictionnaire pour le JSON"""
         return {
             "action": "chat",
-            "str": str,
+            "content": str,
             "fromPlayer": fromPlayer,
             "private": private
 
@@ -201,11 +204,11 @@ class Game:
            #ici j'ai refait pareil que l'envoie de donnée dans Choice mais en une seule ligne histoire d'économiser
 
            if p in self.plysData:
-                self.plysData[p].socket.send(json.dumps(self.to_chatDict(str, isFromSystem, fromPlayer, private)).encode('utf-8'))
+                self.plysData[p].socket.send((json.dumps(self.to_chatDict(str, isFromSystem, fromPlayer, private))+ "\n").encode('utf-8'))
 
 
-    def join(name, adress, port, socket):
-        for ply in plys:
+    def join(self, name, adress, port, socket):
+        for ply in self.plys:
             if self.plysData[ply].adress == adress and self.plysData[ply].port == port:
                 return
             else:
@@ -217,13 +220,17 @@ class Game:
     def handle_client_messages(self, player_name, conn):
         while True:
             try:
+                print("received data")
                 data = conn.recv(2048).decode('utf-8')
+                print("decoded data")
                 if not data: break
 
                 msg_data = json.loads(data)
+                print("loaded data")
 
                 #on traite que les messages de type "chat"
-                if msg_data.get("type") == "chat":
+                if msg_data.get("action") == "chat":
+                    print("data is type chat")
                     content = msg_data.get("content", "")
 
                     # --- Logique de message privés ---
@@ -244,9 +251,10 @@ class Game:
                     # si pas privé public
                     else:
                         #envoyer à tout le monde
+                        print("envoi de: ", content)
                         self.chat(self.plys, content, False, fromPlayer=player_name)
 
-                elif msg_data.get("type") == "choiceAnswer":
+                elif msg_data.get("action") == "choiceAnswer":
                     self.getChoice(msg_data.get("id")).answer[player_name] = msg_data.get("answer")
 
             except:
@@ -255,39 +263,59 @@ class Game:
 
     def start(self):
         self.chat(self.plys, "La partie commence: ", True, "")
-        self.chat(self.plys, "Attribution des rôles ", True, "")
+        self.chat(self.plys, "Attriution des rôles ", True, "")
 
 
         #distribution des rôles
-        rolesCopie = self.rolesLists[len(plys)]
-        for ply in plys:
+        rolesCopie = self.rolesLists[len(self.plys)]
+        for ply in self.plys:
             x = randint(0, len(rolesCopie) - 1)
             self.roles[ply] = rolesCopie[x]
             self.chat([ply], ("Vous êtes" + self.roles[ply]), False, "")
-            rolesCopie.remove(x)
+            rolesCopie.pop(x)
 
             self.statuts[ply] = True
+            self.plysData[ply].socket.send(json.dumps({
+                "action": "players",
+                "list": self.plys
+            }).encode('utf-8'))
 
         # Lancer l'écoute pour chaque joueur
         for name in self.plys:
             t = threading.Thread(target=self.handle_client_messages, args=(name, self.plysData[name].socket))
-            t.daemon = True  # Le thread meurt si le programme principal s'arrête
+            t.daemon = True  # Le thread se stoppe si le programme principal s'arrête
             t.start()
 
 
-        self.night(self.nightNb)
+        self.night()
+
+
 
         while not self.finished:
+            time.sleep(1)  # pour pas faire surchauffer le pc
+            current_t = time.time()
+
+
             for k in self.schedule.keys():
                 if time() - k > self.schedule[k][0]:
                     if self.schedule[k][1] == "night":
                         self.night()
+                        self.plysData[ply].socket.send(json.dumps({
+                            "action": "phase",
+                            "value": "night"
+                        }).encode('utf-8'))
                     elif self.schedule[k][1] == "day":
                         self.day()
+                        self.plysData[ply].socket.send(json.dumps({
+                            "action": "phase",
+                            "value": "day"
+                        }).encode('utf-8'))
                     elif self.schedule[k][1] == "vote":
                         self.vote()
                     elif self.schedule[k][1] == "voteEnd":
                         self.endVote(self.schedule[k][2])
+
+                    del self.schedule[k]
 
 
 
@@ -318,8 +346,8 @@ class Game:
 
         self.chat(self.plys, "le jour se lève et les joueurs suivants sont morts ", True, "")
         for name in self.statuts.keys():
-            if not self.statuts[st]:
-                chat(self.plys, name, True, "")
+            if not self.statuts[name]:
+                self.chat(self.plys, name, True, "")
 
         for ply in self.plys:
             self.morningAct(self.roles[ply], ply)
@@ -354,7 +382,7 @@ class Game:
         global RoleCamps
         voted = {}
         for k in self.getChoice(id).answer.keys():
-            if not voted[self.getChoice(id).answer[k]]==null:
+            if not voted[self.getChoice(id).answer[k]] is None:
                 voted[self.getChoice(id).answer[k]] = voted[self.getChoice(id).answer[k]] + 1
             else:
                 voted[self.getChoice(id).answer[k]] = 1
@@ -372,7 +400,7 @@ class Game:
 
         if self.roles[ply] == "Diablotin":
             self.chat(self.plys, (mostVoted+ " était diablotin, les citadins ont gagnés"), True, "")
-            self.finished = true
+            self.finished = True
 
 
         wonByD = True
@@ -382,7 +410,7 @@ class Game:
 
         if wonByD:
             self.chat(self.plys, ("Il ne reste plus de citadin, les sbire ont gagnés"), True, "")
-            self.finished = true
+            self.finished = True
 
 
         self.nightNb = self.nightNb + 1
@@ -396,7 +424,7 @@ class ServerLobby:
     def __init__(self, host='0.0.0.0', port=5555):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind((host, port))
-        self.sock.listen(15)  # On autorise jusqu'à 15 connexions en attente
+        self.sock.listen(15)  #on autorise jusqu'à 15 connexions en attente
 
         self.clients = {}  # format: { "NomJoueur": socket_objet }
         self.is_accepting = True
@@ -406,7 +434,7 @@ class ServerLobby:
 
         while self.is_accepting:
             try:
-                # On accepte une nouvelle connexion
+
                 conn, addr = self.sock.accept()
 
                 # Le client doit envoyer son nom immédiatement après la connexion
@@ -422,10 +450,10 @@ class ServerLobby:
                     self.clients[player_name] = conn
                     print(f"[NOUVEAU] {player_name} s'est connecté ({addr[0]})")
 
-                    # On confirme au joueur qu'il est bien dans le lobby
-                    conn.send(json.dumps({"status": "success", "message": "Bienvenue dans le salon d'attente de Blood on the Clocktower"}).encode())
 
-                    # (Optionnel) Notifier les autres qu'un joueur a rejoint
+                    conn.send((json.dumps({"action": "chat", "isSystem": True,"status": "success", "content": "Bienvenue dans le salon d'attente de Blood on the Clocktower"}) + "\n").encode())
+
+
                     self.broadcast_system(f"{player_name} a rejoint le salon d'attente.")
 
             except Exception as e:
@@ -434,8 +462,8 @@ class ServerLobby:
                 break
 
     def broadcast_system(self, text):
-        """Envoie un message de service à tout le monde."""
-        msg = json.dumps({"action": "chat", "isSystem": True, "content": text})
+        """Envoie un message global à tout le monde."""
+        msg = json.dumps({"action": "chat", "isSystem": True, "content": text}) + "\n"
         for c in self.clients.values():
             try:
                 c.send(msg.encode())
@@ -445,14 +473,17 @@ class ServerLobby:
     def stop_accepting(self):
         """Ferme les portes du lobby une fois la partie lancée."""
         self.is_accepting = False
-        # On ne ferme pas la socket principale ici pour garder les joueurs,
-        # mais on arrête la boucle accept()
+        #on ne ferme pas la socket principale ici pour garder les joueurs,
+        #mais on arrête la boucle accept()
 
 
 
 
 # --- Initialisation ---
-lobby = ServerLobby()
+hostname = socket.gethostname()
+IPAddr = socket.gethostbyname(hostname)
+print("L'ip est ", IPAddr)
+lobby = ServerLobby(IPAddr)
 
 # On lance l'écoute dans un thread pour ne pas bloquer le terminal
 thread_connexion = threading.Thread(target=lobby.listen_for_connections, daemon=True)
@@ -466,7 +497,7 @@ while True:
         print(f"Joueurs connectés ({len(lobby.clients)}) : {list(lobby.clients.keys())}")
 
     elif cmd == "start":
-        if len(lobby.clients) < 5:  # Exemple: minimum 5 joueurs pour BotC
+        if len(lobby.clients) < 5 and False:  # Exemple: minimum 5 joueurs pour BotC
             print("Pas assez de joueurs pour commencer.")
             continue
 
@@ -476,5 +507,5 @@ while True:
 
 # --- Initialisation de la game ---
 
-mon_jeu = Game(id=1, clients=lobby.clients)
+mon_jeu = Game(id=1, connected_clients=lobby.clients)
 mon_jeu.start()
