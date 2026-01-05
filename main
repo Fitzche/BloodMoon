@@ -119,6 +119,7 @@ class Choice:
         self.strs = strs
         self.instruct = instruct
         self.time = time
+        self.ecarlate = False
 
         """
         type = 1 -> choix de joueur, ne pas considérer la liste str
@@ -176,12 +177,34 @@ class Game:
         self.roles = {}
         self.statuts = {}
         self.nightNb = 1
+        self.poisonned = {}
 
         self.choices = []
         self.roleChoiceId = {}
 
 
-        self.rolesLists = {1: ["Diablotin"], 2: ["Diablotin", "Enquêteur"]}
+        self.rolesLists = {
+        1:["Diablotin"],
+        2:["Diablotin", "Enquêteur"],
+        3:["Diablotin", "Enquêteur", "Cuistot"],
+        4:["Diablotin", "Enquêteur", "Cuistot", "Empathe"],
+        5:["Diablotin", "Enquêteur", "Cuistot", "Empathe", "Empoisonneur"],
+        6:["Diablotin", "Enquêteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur"],
+        7:["Diablotin", "Enquêteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere"],
+        8:["Diablotin", "Enquêteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Maire"],
+        9:["Diablotin", "Enquêteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Maire", "Soldat"],
+        10:["Diablotin", "Enquêteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint","Ivrogne", "Baron"],
+        11:["Diablotin", "Enquêteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint","Ivrogne", "Baron","Pourfendeur"],
+        12:["Diablotin", "Enquêteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint","Ivrogne", "Baron","Pourfendeur"],
+        13:[],
+        14:[],
+        15:[],
+        16:[],
+        17:[],
+        18:[],
+        19:[],
+        20:[]
+        }
         self.schedule = {}
 
 
@@ -272,6 +295,38 @@ class Game:
             x = randint(0, len(rolesCopie) - 1)
             self.roles[ply] = rolesCopie[x]
             self.chat([ply], ("Vous êtes" + self.roles[ply]), False, "")
+
+            # Information du Diablotin au début du jeu
+            if self.roles[ply] == "Diablotin":
+
+
+                role1 = self.rolesLists[len(self.plys)][randint(0,len(self.rolesLists[len(self.plys)]))]
+                role2 = self.rolesLists[len(self.plys)][randint(0,len(self.rolesLists[len(self.plys)]))]
+                role3 = self.rolesLists[len(self.plys)][randint(0,len(self.rolesLists[len(self.plys)]))]
+                self.chat([ply], ("Dans la game il y a les roles: " + role1 + "; "+ role2 + "; "+ role3), False, "")
+
+
+            # Information de l'Archiviste au début du jeu
+            elif self.roles[ply] == "Archivite":
+                for p in self.plys:
+
+
+
+                    if RoleCamps[self.roles[p]] == "Etranger":
+                        name = self.plys[randint(0, len(plys))]
+
+                        #fausse information si l'archiviste est empoisonné
+                        if self.poisonned[ply] == True:
+                            name2 = self.plys[randint(0, len(plys))]
+                            self.chat([ply], ("Le role "+ self.roles[p] + " appartient à "+ name + " ou "+ name2), True, "", True)
+                        else:
+
+                            #fait apparaitre les deux noms de manière aléatoire pour éviter que les joueurs sache lequel est le vrai role
+                            if randint(0, 100) > 50:
+                                self.chat([ply], ("Le role "+ self.roles[p] + " appartient à "+ name + " ou "+ p), True, "", True)
+                            else:
+                                self.chat([ply], ("Le role "+ self.roles[p] + " appartient à "+ p + " ou "+ name), True, "", True)
+
             rolesCopie.pop(x)
 
             self.statuts[ply] = True
@@ -324,7 +379,10 @@ class Game:
 
 
     def nightAct(role, ply):
-        pass
+        if role == "Diablotin":
+            Choice c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur à éliminer", 120)
+            self.choices["Diablotin"] = c
+            c.run()
 
 
 
@@ -339,8 +397,15 @@ class Game:
 
 
     def morningAct(self):
-        pass
 
+        if self.choices["Diablotin"].answer.values()[0] not None:
+            ply = self.statuts[self.choices["Diablotin"].answer.values()[0]] = False
+            self.chat(self.plys, ("Le joueur "+ ply + " est mort") ,True)
+            self.plysData[ply].socket.send(json.dumps({
+                            "action": "death"
+                        }).encode('utf-8'))
+        else:
+            self.chat(self.plys, ("Le diablotin n'a pas fait de victime") ,True)
 
     def day(self):
 
@@ -367,7 +432,7 @@ class Game:
 
         self.chat(self.plys, "Les votes commencent, veuillez choisir qui mourra ce matin: ", True, "")
 
-        votes = Choice(1, self.plys, [], "Choisissez un joueur à éliminer")
+        votes = Choice(1, datas = [plysData[p] for p in self.plys], [], "Choisissez un joueur à éliminer", 120)
         votes.run()
 
         self.choices.append(votes)
@@ -376,7 +441,11 @@ class Game:
 
 
     def onDied(self, ply):
-        pass
+        self.plysData[ply].socket.send(json.dumps({
+                            "action": "death"
+                        }).encode('utf-8'))
+
+
 
     def endVote(self, id):
         global RoleCamps
@@ -398,9 +467,26 @@ class Game:
         self.statuts[ply] = False
         self.onDied(ply)
 
-        if self.roles[ply] == "Diablotin":
+
+
+        ecar = False
+            for p in self.plys:
+                if self.statuts[p] and self.roles[p] == "Femme ecarlate":
+                    ecar = True
+
+
+        if self.roles[ply] == "Diablotin" and not ecar:
+
+
+
+
             self.chat(self.plys, (mostVoted+ " était diablotin, les citadins ont gagnés"), True, "")
             self.finished = True
+        elif self.roles[ply] == "Diablotin":
+            self.ecarlate = True
+
+        if self.roles[ply] == "Femme ecarlate" and self.ecarlate:
+            self.chat(self.plys, (mostVoted+ " était femme ecarlate, les citadins ont gagnés"), True, "")
 
 
         wonByD = True
