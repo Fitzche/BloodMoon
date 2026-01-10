@@ -127,8 +127,8 @@ class Choice:
         type = 3 -> choix booléan
 
         """
-        self.receipt = {plys[i].name: False for i in len(plys)}
-        self.answer = {plys[i].name: "" for i in len(plys)}
+        self.receipt = {plys[i].name: False for i in range(len(plys))}
+        self.answer = {plys[i].name: "" for i in range(len(plys))}
 
 
 
@@ -227,7 +227,8 @@ class Game:
            #ici j'ai refait pareil que l'envoie de donnée dans Choice mais en une seule ligne histoire d'économiser
 
            if p in self.plysData:
-                self.plysData[p].socket.send((json.dumps(self.to_chatDict(str, isFromSystem, fromPlayer, private))+ "\n").encode('utf-8'))
+
+               self.plysData[p].socket.send((json.dumps(self.to_chatDict(str, isFromSystem, fromPlayer, private))+ "\n").encode())
 
 
     def join(self, name, adress, port, socket):
@@ -241,18 +242,20 @@ class Game:
 
 
     def handle_client_messages(self, player_name, conn):
+
         while True:
             try:
-                print("received data")
-                data = conn.recv(2048).decode('utf-8')
-                print("decoded data")
+
+                data = conn.recv(2048).decode()
+
                 if not data: break
 
                 msg_data = json.loads(data)
-                print("loaded data")
+
 
                 #on traite que les messages de type "chat"
                 if msg_data.get("action") == "chat":
+
                     print("data is type chat")
                     content = msg_data.get("content", "")
 
@@ -268,6 +271,8 @@ class Game:
                             #envoie le message aux deux joueurs
                             self.chat([target_name], message_prive, False, fromPlayer=f"(Privé) {player_name}")
                             self.chat([player_name], message_prive, False, fromPlayer=f"À {target_name}")
+
+
                         else:
                             self.chat([player_name], f"Joueur {target_name} introuvable.", True)
 
@@ -275,7 +280,8 @@ class Game:
                     else:
                         #envoyer à tout le monde
                         print("envoi de: ", content)
-                        self.chat(self.plys, content, False, fromPlayer=player_name)
+
+                        self.chat(self.plys, content, True, player_name)
 
                 elif msg_data.get("action") == "choiceAnswer":
                     self.getChoice(msg_data.get("id")).answer[player_name] = msg_data.get("answer")
@@ -286,7 +292,9 @@ class Game:
 
     def start(self):
         self.chat(self.plys, "La partie commence: ", True, "")
-        self.chat(self.plys, "Attriution des rôles ", True, "")
+        self.chat(self.plys, "Attribution des rôles ", True, "")
+
+
 
 
         #distribution des rôles
@@ -294,15 +302,16 @@ class Game:
         for ply in self.plys:
             x = randint(0, len(rolesCopie) - 1)
             self.roles[ply] = rolesCopie[x]
-            self.chat([ply], ("Vous êtes" + self.roles[ply]), False, "")
+            self.chat([ply], ("Vous êtes" + self.roles[ply] + " " ), True, "")
+            self.chat([ply], (roleDes[self.roles[ply]]), False, "")
 
             # Information du Diablotin au début du jeu
             if self.roles[ply] == "Diablotin":
 
 
-                role1 = self.rolesLists[len(self.plys)][randint(0,len(self.rolesLists[len(self.plys)]))]
-                role2 = self.rolesLists[len(self.plys)][randint(0,len(self.rolesLists[len(self.plys)]))]
-                role3 = self.rolesLists[len(self.plys)][randint(0,len(self.rolesLists[len(self.plys)]))]
+                role1 = self.rolesLists[len(self.plys)][randint(0,len(self.rolesLists[len(self.plys)]) -1)]
+                role2 = self.rolesLists[len(self.plys)][randint(0,len(self.rolesLists[len(self.plys)]) -1)]
+                role3 = self.rolesLists[len(self.plys)][randint(0,len(self.rolesLists[len(self.plys)]) -1)]
                 self.chat([ply], ("Dans la game il y a les roles: " + role1 + "; "+ role2 + "; "+ role3), False, "")
 
 
@@ -361,16 +370,20 @@ class Game:
             rolesCopie.pop(x)
 
             self.statuts[ply] = True
-            self.plysData[ply].socket.send(json.dumps({
+
+
+            self.plysData[ply].socket.send((json.dumps({
                 "action": "players",
                 "list": self.plys
-            }).encode('utf-8'))
+            } )+ "\n").encode())
+
 
         # Lancer l'écoute pour chaque joueur
         for name in self.plys:
             t = threading.Thread(target=self.handle_client_messages, args=(name, self.plysData[name].socket))
             t.daemon = True  # Le thread se stoppe si le programme principal s'arrête
             t.start()
+
 
 
         self.night()
@@ -383,19 +396,19 @@ class Game:
 
 
             for k in self.schedule.keys():
-                if time() - k > self.schedule[k][0]:
+                if time.time() - k > self.schedule[k][0]:
                     if self.schedule[k][1] == "night":
                         self.night()
-                        self.plysData[ply].socket.send(json.dumps({
+                        self.plysData[ply].socket.send((json.dumps({
                             "action": "phase",
                             "value": "night"
-                        }).encode('utf-8'))
+                        })+ "\n").encode())
                     elif self.schedule[k][1] == "day":
                         self.day()
-                        self.plysData[ply].socket.send(json.dumps({
+                        self.plysData[ply].socket.send((json.dumps({
                             "action": "phase",
                             "value": "day"
-                        }).encode('utf-8'))
+                        })+ "\n").encode())
                     elif self.schedule[k][1] == "vote":
                         self.vote()
                     elif self.schedule[k][1] == "voteEnd":
@@ -412,17 +425,17 @@ class Game:
     def nightAct(self, role, ply):
         if role == "Diablotin":
             c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur à éliminer", 120)
-            self.choices["Diablotin"] = c
+            self.roleChoiceId["Diablotin"] = c
             c.run()
         elif role == "Empoisonneur":
-            if not self.choices["Empoisonneur"].answer.values()[0] == None:
+            if not self.roleChoiceId["Empoisonneur"].answer.values()[0] == None:
                 self.poisonned = False
             c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur à empoisonner", 120)
-            self.choices["Empoisonneur"] = c
+            self.roleChoiceId["Empoisonneur"] = c
             c.run()
         elif role == "Croque-Mort":
             c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur dont vous connaitrez l'identité si vous venez à mourir de la main du Diablotin", 120)
-            self.choices["Croque"] = c
+            self.roleChoiceId["Croque"] = c
             c.run()
         elif role == "Empathe":
             x = 0
@@ -441,35 +454,35 @@ class Game:
             self.nightAct(self.roles[ply], ply)
 
         self.nightNb = self.nightNb + 1
-        self.schedule[time()] = (120, "day", self.nightNb)
+        self.schedule[time.time()] = (120, "day", self.nightNb)
 
 
     def morningAct(self):
 
-        if not self.choices["Diablotin"].answer.values()[0] ==  None:
-            ply = self.choices["Diablotin"].answer.values()[0]
+        if not self.roleChoiceId["Diablotin"].answer.values()[0] ==  None:
+            ply = self.roleChoiceId["Diablotin"].answer.values()[0]
             self.statuts[ply] = False
             self.chat(self.plys, ("Le joueur "+ ply + " est mort") ,True)
-            self.plysData[ply].socket.send(json.dumps({
+            self.plysData[ply].socket.send((json.dumps({
                             "action": "death"
-                        }).encode('utf-8'))
+                        })+ "\n").encode('utf-8'))
 
 
             #Donne un role au croque mort s'il est tué par le diablotin et s'il a fait un choix
             if self.roles[ply] == "Croque-Mort":
-                if not self.choices["Croque"].answer.values()[0] == None:
+                if not self.roleChoiceId["Croque"].answer.values()[0] == None:
                     if not self.poisonned[ply]:
-                        self.chat([ply],("Le joueur "+ self.choices["Croque"].answer.values()[0] + " est "+ self.roles[self.choices["Croque"].answer.values()[0]]) )
+                        self.chat([ply],("Le joueur "+ self.roleChoiceId["Croque"].answer.values()[0] + " est "+ self.roles[self.roleChoiceId["Croque"].answer.values()[0]]) )
                     else:
-                        self.chat([ply],("Le joueur "+ self.choices["Croque"].answer.values()[0] + " est "+ self.rolesLists[20][randint(0, len(self.rolesLists[20]))]))
+                        self.chat([ply],("Le joueur "+ self.roleChoiceId["Croque"].answer.values()[0] + " est "+ self.rolesLists[20][randint(0, len(self.rolesLists[20]))]))
 
 
 
         else:
             self.chat(self.plys, ("Le diablotin n'a pas fait de victime") ,True)
 
-        if not self.choices["Empoisonneur"].answer.values()[0] == None:
-            player = self.choices["Empoisonneur"].answer.values()[0]
+        if not self.roleChoiceId["Empoisonneur"].answer.values()[0] == None:
+            player = self.roleChoiceId["Empoisonneur"].answer.values()[0]
             self.poisonned[player] = True
 
 
@@ -488,7 +501,7 @@ class Game:
         for ply in self.plys:
             self.morningAct()
 
-        self.schedule[time()] = (120, "vote", self.nightNb)
+        self.schedule[time.time()] = (120, "vote", self.nightNb)
 
 
 
@@ -507,14 +520,14 @@ class Game:
         votes.run()
 
         self.choices.append(votes)
-        self.schedule[time()] = (120, "VoteEnd", votes.id)
+        self.schedule[time.time()] = (120, "VoteEnd", votes.id)
 
 
 
     def onDied(self, ply):
-        self.plysData[ply].socket.send(json.dumps({
+        self.plysData[ply].socket.send((json.dumps({
                             "action": "death"
-                        }).encode('utf-8'))
+                        })+ "\n").encode('utf-8'))
 
         for p in self.plys:
             if self.roles[p] == "Fossoyeur":
@@ -605,7 +618,7 @@ class ServerLobby:
 
                 if player_name in self.clients:
                     # Erreur si le nom est déjà pris
-                    conn.send(json.dumps({"status": "error", "message": "Nom déjà pris"}).encode())
+                    conn.send((json.dumps({"status": "error", "message": "Nom déjà pris"})+ "\n").encode())
                     conn.close()
                 else:
                     self.clients[player_name] = conn
@@ -619,7 +632,7 @@ class ServerLobby:
 
             except Exception as e:
                 if self.is_accepting:
-                    print(f"Erreur connexion: {e}")
+                    print(f"erreur connexion: {e}")
                 break
 
     def broadcast_system(self, text):
@@ -667,6 +680,7 @@ while True:
         break
 
 # --- Initialisation de la game ---
+
 
 mon_jeu = Game(id=1, connected_clients=lobby.clients)
 mon_jeu.start()
