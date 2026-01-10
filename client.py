@@ -48,7 +48,7 @@ class GameUI(BoxLayout):
         self.sock = None  # Socket réseau
         self.est_mort = False  # Flag pour savoir si le joueur est mort
 
-        # Sidebar (liste des joueurs) 
+        # Sidebar (liste des joueurs)
         self.sidebar = Panel(
             COULEUR_PANEL,
             orientation="vertical",
@@ -147,7 +147,8 @@ class GameUI(BoxLayout):
             self.log(f"{msg.get('fromPlayer','SYS')} : {msg.get('content','')}")
 
         elif action == "players":
-            self.set_players(msg.get("list", []))
+            print("players list given")
+            #self.set_players(msg.get("list", []))
 
         elif action == "role":
             self.show_role(msg.get("role", "Unknown"), msg.get("description", ""))
@@ -173,10 +174,11 @@ class GameUI(BoxLayout):
 
 
     def listen(self):
+
         buffer = "" #on crée un buffer pour stocker les morceaux de messages
         while True:
             try:
-                data = self.sock.recv(4096).decode('utf-8')
+                data = self.sock.recv(2048).decode('utf-8')
                 if not data: break
 
                 buffer += data #on ajoute au buffer
@@ -206,7 +208,7 @@ class GameUI(BoxLayout):
             return
         self.entry.text = ""
         self.sock.send(json.dumps({
-            "type": "chat",
+            "action": "chat",
             "content": txt
         }).encode())
 
@@ -227,7 +229,7 @@ class GameUI(BoxLayout):
     def send_vote(self, pcid, ans):
         """Envoyer le choix de vote au serveur"""
         self.sock.send(json.dumps({
-            "type": "choiceAnswer",
+            "action": "choiceAnswer",
             "id": pcid,
             "answer": ans
         }).encode())
@@ -279,4 +281,3 @@ class GUI(App):
 
 # Lancer l'application
 GUI().run()
-
