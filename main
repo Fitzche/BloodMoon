@@ -5,7 +5,9 @@ import socket
 import json
 import threading
 
-import self
+from win32con import TRUETYPE_FONTTYPE
+
+PHASE_TIME = 12
 
 roleDes= {"Diablotin":"Le Diablotin est le chef des Démons. Chaque nuit, il choisit de tuer quelqu'un. Il est mis au courant de trois rôles qui ne sont pas présents dans la partie. Si le Diablotin meurt, les Citadins gagnent. Mais s'il décide de se viser lui-même la nuit, il meurt et un Sbire choisi aléatoirement (la Femme Écarlate est prioritaire) devient alors le nouveau Diablotin.",
 
@@ -177,9 +179,9 @@ class Game:
         self.plys = list(self.plysData.keys())
         self.finished = False
         self.roles = {}
-        self.statuts = {}
+        self.statuts = {name: True for name in self.plys}
         self.nightNb = 1
-        self.poisonned = {}
+        self.poisonned = {name: False for name in self.plys}
         self.ecarlate = False
         self.choices = []
         self.roleChoiceId = {}
@@ -272,7 +274,7 @@ class Game:
                             if not self.statuts[player_name]:
                                 self.chat([player_name], "Vous ne pouvez effectuer cette commande en étant mort", True)
                             else:
-                                self.chat(self.plys, "Le joueur "+ player_name+ " a désigné le joueur "+ target_name)
+                                self.chat(self.plys, "Le joueur "+ player_name+ " a désigné le joueur "+ target_name, True)
                                 self.designed[target_name] = True
 
                                 if self.roles[target_name] == "Vierge":
@@ -321,7 +323,7 @@ class Game:
                     print("answer: "+msg_data.get("answer"))
 
                     choix = self.getChoice(msg_data.get("id"))
-                    if not choix == None:
+                    if not choix == None and not choix == '':
                         choix.answer[player_name] = msg_data.get("answer")
 
             except Exception as e:
@@ -337,20 +339,28 @@ class Game:
 
 
         #distribution des rôles
-        rolesCopie = self.rolesLists[len(self.plys)]
+        rolesCopie = []
+
+        for r in self.rolesLists[len(self.plys)]:
+            rolesCopie.append(r)
+
         for ply in self.plys:
             x = randint(0, len(rolesCopie) - 1)
             self.roles[ply] = rolesCopie[x]
-
+            print(rolesCopie[x] + " for " + ply)
             if self.roles[ply] == "Ivrogne":
-                rolesIvrogne =["Archiviste", "Croque-Mort", "Cuistot", "Empathe", "Enqueteur", "Fossoyeur", "Lavandiere", "Voyante"]
+                rolesIvrogne = ["Archiviste", "Croque-Mort", "Cuistot", "Empathe", "Enqueteur", "Fossoyeur",
+                                "Lavandiere", "Voyante"]
                 self.roles[ply] = rolesIvrogne[randint(0, len(rolesIvrogne) - 1)]
                 self.poisonned[ply] = True
 
-
-
-            self.chat([ply], ("Vous êtes" + self.roles[ply] + " " ), True, "")
+            self.chat([ply], ("Vous êtes" + self.roles[ply] + " "), True, "")
             self.chat([ply], (roleDes[self.roles[ply]]), True, "")
+            rolesCopie.pop(x)
+
+
+        for ply in self.plys:
+
 
 
 
@@ -398,14 +408,14 @@ class Game:
                     self.chat([ply], ("Le nombre de paires est de " + "0"),True)
 
                 else:
-                    self.chat([ply], ("Le nombre de paires est de " + x),True)
+                    self.chat([ply], ("Le nombre de paires est de " + str(x)),True)
             elif self.roles[ply] == "Enqueteur":
                 for p in self.plys:
 
 
 
                     if RoleCamps[self.roles[p]] == "Sbire" and not self.roles[p] == "Espion":
-                        name = self.plys[randint(0, len(self.plys))]
+                        name = self.plys[randint(0, len(self.plys) -1)]
 
                         #fausse information si l'enqueteur est empoisonné
                         if self.poisonned[ply] == True:
@@ -439,7 +449,7 @@ class Game:
                                 self.chat([ply], ("Le role " + self.roles[p] + " appartient à " + p + " ou " + name),
                                           True, "", True)
 
-            rolesCopie.pop(x)
+
 
             self.statuts[ply] = True
 
@@ -498,31 +508,30 @@ class Game:
 
     def nightAct(self, role, ply):
         if role == "Diablotin":
-            c = Choice(1, [self.plysData[ply]], ["1", "2", "3"], "Choisissez un joueur à éliminer (choix de role)", 120)
+            c = Choice(1, [self.plysData[ply]], ["1", "2", "3"], "Choisissez un joueur à éliminer (choix de role)", PHASE_TIME)
             self.roleChoiceId["Diablotin"] = c
             c.run(self)
         elif role == "Empoisonneur":
-            if not list(self.roleChoiceId["Empoisonneur"].answer.values())[0] == None:
+            if self.isChoiceValid("Empoisonneur"):
                 self.poisonned = False
-            c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur à empoisonner (choix de role)", 120)
+            c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur à empoisonner (choix de role)", PHASE_TIME)
             self.roleChoiceId["Empoisonneur"] = c
             c.run(self)
         elif role == "Moine":
-            if not list(self.roleChoiceId["Moine"].answer.values())[0] == None:
-                self.poisonned = False
-            c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur à protéger (choix de role)", 120)
+
+            c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur à protéger (choix de role)", PHASE_TIME)
             self.roleChoiceId["Moine"] = c
             c.run(self)
         elif role == "Croque-Mort":
-            c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur dont vous connaitrez l'identité si vous venez à mourir de la main du Diablotin (choix de role)", 120)
+            c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur dont vous connaitrez l'identité si vous venez à mourir de la main du Diablotin (choix de role)", PHASE_TIME)
             self.roleChoiceId["Croque"] = c
             c.run(self)
         elif role == "Voyante":
-            c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur à observer, vous obtiendrez deux roles dont le siens (choix de role)", 120)
+            c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur à observer, vous obtiendrez deux roles dont le siens (choix de role)", PHASE_TIME)
             self.roleChoiceId["Voyante"] = c
             c.run(self)
         elif role == "Majordome":
-            c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur qui sera votre maitre au prochain vote (choix de role)", 120)
+            c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur qui sera votre maitre au prochain vote (choix de role)", PHASE_TIME)
             self.roleChoiceId["Majordome"] = c
             c.run(self)
         elif role == "Empathe":
@@ -537,7 +546,7 @@ class Game:
                 self.chat([ply], ("Il y a "+ "0" + " sbires autours de vous."), True)
 
             else:
-                self.chat([ply], ("Il y a "+ x + " sbires autours de vous."), True)
+                self.chat([ply], ("Il y a "+ str(x) + " sbires autours de vous."), True)
 
 
 
@@ -550,9 +559,15 @@ class Game:
         self.schedule[time.time()] = (12, "day", self.nightNb)
 
 
+    def isChoiceValid(self, choice):
+        if choice in self.roleChoiceId and not list(self.roleChoiceId[choice].answer.values())[0] == None and not list(self.roleChoiceId[choice].answer.values())[0] ==  '':
+            return True
+        else:
+            return False
+
     def morningAct(self):
 
-        if not list(self.roleChoiceId["Diablotin"].answer.values())[0] ==  None:
+        if self.isChoiceValid("Diablotin"):
             ply = list(self.roleChoiceId["Diablotin"].answer.values())[0]
 
 
@@ -560,13 +575,13 @@ class Game:
 
 
             #Annuler la mort si protégé par le moine
-            if "Moine" in self.roleChoiceId and not list(self.roleChoiceId["Moine"].answer.values())[0] == None and list(self.roleChoiceId["Moine"].answer.values())[0] == ply:
+            if self.isChoiceValid("Moine") and list(self.roleChoiceId["Moine"].answer.values())[0] == ply:
 
                 print("protected by Moine")
                 return
 
             #dévier la mort si le joueur visé est maire
-            if "Maire" in self.roleChoiceId and self.roles[ply] == "Maire":
+            if self.roles[ply] == "Maire":
                 if self.plys.index(ply) + 1 < len(self.plys):
                     ply = self.plys[self.plys.index(ply) + 1]
                 elif self.plys.index(ply) > 0:
@@ -595,7 +610,7 @@ class Game:
 
                 #Donne un role au croque mort s'il est tué par le diablotin et s'il a fait un choix
                 if self.roles[ply] == "Croque-Mort":
-                    if "Croque" in self.roleChoiceId and not list(self.roleChoiceId["Croque"].answer.values())[0] == None:
+                    if self.isChoiceValid("Croque"):
                         if not self.poisonned[ply]:
                             self.chat([ply],("Le joueur "+ list(self.roleChoiceId["Croque"].answer.values())[0] + " est "+ self.roles[list(self.roleChoiceId["Croque"].answer.values())[0]]) )
                         else:
@@ -606,11 +621,11 @@ class Game:
         else:
             self.chat(self.plys, ("Le diablotin n'a pas fait de victime") ,True)
 
-        if "Maire" in self.roleChoiceId and not list(self.roleChoiceId["Empoisonneur"].answer.values())[0] == None:
+        if self.isChoiceValid("Empoisonneur"):
             player = list(self.roleChoiceId["Empoisonneur"].answer.values())[0]
             self.poisonned[player] = True
 
-        if "Voyante" in self.roleChoiceId and not list(self.roleChoiceId["Voyante"].answer.values())[0] == None and not list(self.roleChoiceId["Voyante"].answer.keys())[0] == None:
+        if self.isChoiceValid("Voyante") and not list(self.roleChoiceId["Voyante"].answer.keys())[0] == None and not list(self.roleChoiceId["Voyante"].answer.keys())[0] == '':
             player = list(self.roleChoiceId["Voyante"].answer.keys())[0]
             target = list(self.roleChoiceId["Voyante"].answer.values())[0]
             roleSec = self.roles[self.plys[randint(0, len(self.plys) - 1)]]
@@ -642,10 +657,9 @@ class Game:
             if not self.statuts[name]:
                 self.chat(self.plys, name, True, "")
 
-        for ply in self.plys:
-            self.morningAct()
+        self.morningAct()
 
-        self.schedule[time.time()] = (120, "vote", self.nightNb)
+        self.schedule[time.time()] = (PHASE_TIME, "vote", self.nightNb)
 
 
 
@@ -660,11 +674,11 @@ class Game:
 
         self.chat(self.plys, "Les votes commencent, veuillez choisir qui mourra ce matin: ", True, "")
         self.designed = {name: False for name in self.plys}
-        votes = Choice(1, [self.plysData[p] for p in self.plys], [], "Choisissez un joueur à éliminer", 120)
+        votes = Choice(1, [self.plysData[p] for p in self.plys], [], "Choisissez un joueur à éliminer", PHASE_TIME)
         votes.run(self)
 
 
-        self.schedule[time.time()] = (120, "VoteEnd", votes.id)
+        self.schedule[time.time()] = (PHASE_TIME, "voteEnd", votes.id)
 
 
 
@@ -715,7 +729,7 @@ class Game:
             #vérifie si le role du votant est majordome
             if self.roles[k] == "Majordome":
                 #si le joueur désigné par le majordome n'est pas null
-                if "Majordome" in self.roleChoiceId and not list(self.roleChoiceId["Majordome"].answer.values())[0] == None:
+                if self.isChoiceValid("Majordome"):
 
                     #le choix du majordome devient celui de son maitre
                     self.getChoice(id).answer[k] = self.getChoice(id).answer[list(self.roleChoiceId["Majordome"].answer.values())[0]]
@@ -732,7 +746,7 @@ class Game:
 
             if not self.getChoice(id).answer[k] == "":
 
-                if not voted[self.getChoice(id).answer[k]] is None:
+                if not voted[self.getChoice(id).answer[k]] is None and not voted[self.getChoice(id).answer[k] == '']:
                     voted[self.getChoice(id).answer[k]] = voted[self.getChoice(id).answer[k]] + 1
                 else:
                     voted[self.getChoice(id).answer[k]] = 1
