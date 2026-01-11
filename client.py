@@ -17,8 +17,8 @@ import threading  # Pour lancer le réseau en parallèle du GUI (pas bloquer l'i
 COULEUR_FOND = (18/255, 18/255, 18/255, 1)       # Couleur principale du fond
 COULEUR_PANEL = (25/255, 25/255, 25/255, 1)     # Fond des panneaux (sidebar)
 COULEUR_INPUT = (35/255, 35/255, 35/255, 1)     # Fond des TextInput
-COULEUR_TEXTE = (230/255, 230/255, 230/255, 1)  # Texte principal
-COULEUR_TEXTE_FAIBLE = (160/255, 160/255, 160/255, 1)  # Texte secondaire
+COULEUR_TEXTE = (1, 1, 1, 1)  # Texte principal
+COULEUR_TEXTE_FAIBLE = (1,0, 0, 1)  # Texte secondaire
 COULEUR_ACCENT = (30/255, 215/255, 96/255, 1)   # Couleur accent (boutons, highlight)
 COULEUR_DANGER = (220/255, 70/255, 70/255, 1)   # Couleur danger (mort, erreur)
 
@@ -45,6 +45,7 @@ class GameUI(BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(orientation="horizontal", **kwargs)
 
+        self.votePop = None
         self.sock = None  # Socket réseau
         self.est_mort = False  # Flag pour savoir si le joueur est mort
 
@@ -61,8 +62,14 @@ class GameUI(BoxLayout):
         self.sidebar.add_widget(Label(
             text="PLAYERS",
             font_size=13,
-            color=COULEUR_TEXTE_FAIBLE
+            color=COULEUR_TEXTE
         ))
+
+        close_btn = Button(text="Choix", background_color=COULEUR_DANGER)
+        close_btn.bind(on_release=lambda *_: self.showVotePopUp())
+
+
+
 
         # Label pour afficher la liste des joueurs
         self.players_label = Label(
@@ -73,6 +80,7 @@ class GameUI(BoxLayout):
         )
         self.players_label.bind(size=self.players_label.setter("text_size"))
         self.sidebar.add_widget(self.players_label)
+        self.sidebar.add_widget(close_btn)
 
         # Main (chat + input)
         self.main = Panel(
@@ -109,12 +117,21 @@ class GameUI(BoxLayout):
         self.add_widget(self.sidebar)
         self.add_widget(self.main)
 
+
+
     # Fonctions d'affichage
     def log(self, texte, couleur=COULEUR_TEXTE, taille=14):
         """Ajouter un message dans le chat"""
+
+        r = int(couleur[0] * 255)
+        g = int(couleur[1] * 255)
+        b = int(couleur[2] * 255)
+        hex_color = f"{r:02X}{g:02X}{b:02X}"
+
+
         self.chat.text += (
             f"\n[size={taille}]"
-            f"[color={couleur[0]},{couleur[1]},{couleur[2]},1]"
+            f"[color=#{hex_color}]"
             f"{texte}"
             f"[/color][/size]"
         )
@@ -132,7 +149,7 @@ class GameUI(BoxLayout):
 
         # Lancer l'écoute des messages en parallèle
         threading.Thread(target=self.listen, daemon=True).start()
-        self.log("Connected to server", COULEUR_ACCENT)
+        self.log("Connected to server", COULEUR_TEXTE_FAIBLE)
 
 
 
@@ -144,11 +161,30 @@ class GameUI(BoxLayout):
         if action == "chat":
 
             print("has message: ", msg.get('content',''))
-            self.log(f"{msg.get('fromPlayer','SYS')} : {msg.get('content','')}")
+
+            dest = ""
+            color = COULEUR_TEXTE
+
+
+
+            if msg.get('isSystem', False):
+                print("from system")
+                dest = "SYS"
+
+            else:
+                print("not from system")
+                dest = msg.get('fromPlayer','SYS')
+
+            if dest == "" or dest == '':
+                dest = "SYS"
+
+            if dest == "SYS" or dest == 'SYS':
+                color = COULEUR_TEXTE_FAIBLE
+            self.log(f"{dest} : {msg.get('content','')}", color)
 
         elif action == "players":
             print("players list given")
-            #self.set_players(msg.get("list", []))
+            self.set_players(msg.get("list", []))
 
         elif action == "role":
             self.show_role(msg.get("role", "Unknown"), msg.get("description", ""))
@@ -213,26 +249,65 @@ class GameUI(BoxLayout):
         }).encode())
 
     def vote_popup(self, msg):
-        """Afficher une popup pour voter"""
+
+        #en fonction du type de la liste, les choix varient
+        if msg.get("type", 1) == 1:
+            listOfChoices = self.players_label.text.split("\n")
+        elif msg.get("type", 1) == 2:
+            listOfChoices = msg.get("choices", [])
+        elif msg.get("type", 1):
+            listOfChoices = ["Oui", "Non"]
+        else:
+            listOfChoices = ["ErreurChoice1", "ErreurChoice2"]
+        """Afficher une popup pour faire un choix"""
         box = Panel(COULEUR_PANEL, orientation="vertical", padding=15, spacing=10)
         box.add_widget(Label(text=msg.get("instruct", "Vote"), color=COULEUR_TEXTE))
 
-        for p in self.players_label.text.split("\n"):
+        #on ajoute un bouton pour chaque choix possibles
+        for p in listOfChoices:
             if not p:
                 continue
             b = Button(text=p, background_color=COULEUR_INPUT, color=COULEUR_TEXTE)
             b.bind(on_release=lambda _, n=p: self.send_vote(msg.get("id"), n))
             box.add_widget(b)
 
-        Popup(title="Choice", content=box, size_hint=(0.45, 0.65)).open()
+        #on ajoute un bouton pour fermer la popup
+        close_btn = Button(text="Fermer", background_color=COULEUR_DANGER)
+        close_btn.bind(on_release=lambda *_:self.hide_vote_popup())
+        box.add_widget(close_btn)
+
+        #on stocke les valeurs de la popup dans une variable pour pouvoir la rouvrir si besoin
+        self.votePop = Popup(title="Choice", content=box, size_hint=(0.45, 0.65))
+
+        #on ouvre la popup de choix
+        self.votePop.open()
+
+
+    #fonction pour ouvrir la popup de choix
+    def showVotePopUp(self):
+
+        #on vérifie si la popup de choix existe avant de l'ouvrir
+        if not self.votePop == None:
+
+            self.votePop.open()
+
+
+     #fonction pour fermer la popup de choix
+    def hide_vote_popup(self):
+        # on vérifie si la popup de choix existe avant de la fermer
+        if not self.votePop == None:
+            self.votePop.dismiss()
 
     def send_vote(self, pcid, ans):
         """Envoyer le choix de vote au serveur"""
+        self.log("Vous avez choisi: "+ ans, COULEUR_TEXTE_FAIBLE)
         self.sock.send(json.dumps({
             "action": "choiceAnswer",
             "id": pcid,
             "answer": ans
         }).encode())
+
+
 
     # Popups d'information
     def show_role(self, role, desc):
@@ -260,6 +335,10 @@ class GUI(App):
         self.username_input = TextInput(hint_text="Username", background_color=COULEUR_INPUT, foreground_color=COULEUR_TEXTE, multiline=False)
         btn = Button(text="CONNECT", background_color=COULEUR_ACCENT, color=(0, 0, 0, 1))
         btn.bind(on_release=self.start_game)  # Appuyer sur Connect lance la partie
+
+
+
+
 
         top.add_widget(self.ip_input)
         top.add_widget(self.username_input)
