@@ -1,6 +1,6 @@
 from kivy.app import App  # Classe de base pour créer une application Kivy
 from kivy.uix.boxlayout import BoxLayout  # Conteneur qui aligne les widgets horizontalement ou verticalement
-from kivy.uix.label import Label  # Pour afficher du texte
+from kivy.uix.label import Label  #pour afficher du texte
 from kivy.uix.button import Button  # Pour créer des boutons cliquables
 from kivy.uix.textinput import TextInput  # Pour entrer du texte (pseudo, chat, IP)
 from kivy.uix.popup import Popup  # Pour créer des fenêtres popup
@@ -142,7 +142,7 @@ class GameUI(BoxLayout):
 
     # Réseau : connexion au serveur
     def connect(self, ip, pseudo):
-        """Se connecter au serveur avec l'IP et pseudo"""
+        #Se connecter au serveur avec l'IP et pseudo
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((ip, 5555))
         self.sock.send(json.dumps({"name": pseudo}).encode())
@@ -154,7 +154,7 @@ class GameUI(BoxLayout):
 
 
     def handle(self, msg):
-        """Traiter les messages reçus"""
+        #Traiter les messages reçus
         print("handle message")
         action = msg.get("action")
 
@@ -222,6 +222,7 @@ class GameUI(BoxLayout):
                 #on découpe le buffer à chaque retour à la ligne
                 while "\n" in buffer:
                     line, buffer = buffer.split("\n", 1)
+                    #split renvoie la valeur après la coupure (line) et avant (buffer)
                     if line.strip(): #si la ligne n'est pas vide
                         msg = json.loads(line)
                         print("Value loaded successfully")
@@ -231,12 +232,14 @@ class GameUI(BoxLayout):
                 print(f"Erreur listen: {e}")
                 break
 
+        #l'utilisation d'un buffer permet d'éviter le mélange de données venant de plusieurs messages consécutifs
+
 
 
 
     # Actions utilisateur
     def send_chat(self, *_):
-        """Envoyer un message chat au serveur"""
+        #Envoyer un message chat au serveur
         if not self.sock:
             return
         txt = self.entry.text.strip()
@@ -299,7 +302,7 @@ class GameUI(BoxLayout):
             self.votePop.dismiss()
 
     def send_vote(self, pcid, ans):
-        """Envoyer le choix de vote au serveur"""
+        #Envoyer le choix de vote au serveur
         self.log("Vous avez choisi: "+ ans, COULEUR_TEXTE_FAIBLE)
         self.sock.send(json.dumps({
             "action": "choiceAnswer",
@@ -311,7 +314,7 @@ class GameUI(BoxLayout):
 
     # Popups d'information
     def show_role(self, role, desc):
-        """Afficher le rôle du joueur"""
+        #Afficher le rôle du joueur
         box = Panel(COULEUR_PANEL, orientation="vertical", padding=20, spacing=10)
         box.add_widget(Label(text=role, font_size=22, color=COULEUR_ACCENT))
         box.add_widget(Label(text=desc, color=COULEUR_TEXTE))
@@ -352,7 +355,7 @@ class GUI(App):
         return root
 
     def start_game(self, *_):
-        """Connecter le joueur au serveur"""
+        #Connecter le joueur au serveur
         self.game.connect(
             self.ip_input.text.strip(),
             self.username_input.text.strip()
