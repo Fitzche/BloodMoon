@@ -5,99 +5,81 @@ import socket
 import json
 import threading
 
-
-
 PHASE_TIME = 12
 
-roleDes= {"Diablotin":"Le Diablotin est le chef des Démons. Chaque nuit, il choisit de tuer quelqu'un. Il est mis au courant de trois rôles qui ne sont pas présents dans la partie. Si le Diablotin meurt, les Citadins gagnent. Mais s'il décide de se viser lui-même la nuit, il meurt et un Sbire choisi aléatoirement (la Femme Écarlate est prioritaire) devient alors le nouveau Diablotin.",
 
+#dictionnaire associant la description des rôles à leurs noms
+roleDes = {
+    "Diablotin": "Le Diablotin est le chef des Démons. Chaque nuit, il choisit de tuer quelqu'un. Il est mis au courant de trois rôles qui ne sont pas présents dans la partie. Si le Diablotin meurt, les Citadins gagnent. Mais s'il décide de se viser lui-même la nuit, il meurt et un Sbire choisi aléatoirement (la Femme Écarlate est prioritaire) devient alors le nouveau Diablotin.",
 
-"Baron":"Si le Baron est en jeu, deux rôles Étrangers sont automatiquement ajoutés à la composition.",
+    "Baron": "Si le Baron est en jeu, deux rôles Étrangers sont automatiquement ajoutés à la composition.",
 
+    "Empoisonneur": "A une occasion, l'Empoisonneur empoisonne un joueur. Durant cette nuit et cette journée, le joueur empoisonné recevra des informations erronées ",
 
-"Empoisonneur":"A une occasion, l'Empoisonneur empoisonne un joueur. Durant cette nuit et cette journée, le joueur empoisonné recevra des informations erronées ",
+    "Espion": "L'Espion apparaît comme Citadin dans n'importe quelle situation. La première nuit, il reçoit les rôles de TOUS les joueurs.",
 
+    "Femme ecarlate": "Si cinq joueurs (ou plus) sont encore en vie à la mort du Diablotin, la Femme Écarlate devient Diablotin à sa place.",
 
-"Espion":"L'Espion apparaît comme Citadin dans n'importe quelle situation. La première nuit, il reçoit les rôles de TOUS les joueurs.",
+    "Archiviste": "La première nuit, deux joueurs ainsi qu'un rôle Étranger spécifique sont indiqués à l'Archiviste. Parmi ces deux joueurs se trouve ce rôle Étranger.",
 
+    "Croque-mort": "Si le Croque-Mort meurt la nuit, il se réveille alors pour désigner un joueur dont il apprendra l'identité. Il peut désigner un joueur mort.",
 
-"Femme ecarlate":"Si cinq joueurs (ou plus) sont encore en vie à la mort du Diablotin, la Femme Écarlate devient Diablotin à sa place.",
+    "Cuistot": "La première nuit, le Chef est mis au courant du nombre de \"paires\" de Démons autour de la table. Est considérée comme \"paire\" : deux Démons côte à côte. Si trois Démons sont d'affilée, alors il y a deux paires. Si aucun Démon n'est à côté d'un autre, alors il y a 0 paire.",
 
+    "Empathe": "Chaque nuit, l'Empathe apprend le nombre de Méchants directement à côté d'elle (0, 1 ou 2). Les joueurs morts ne sont pas pris en compte.",
 
-"Archiviste":"La première nuit, deux joueurs ainsi qu'un rôle Étranger spécifique sont indiqués à l'Archiviste. Parmi ces deux joueurs se trouve ce rôle Étranger.",
+    "Enqueteur": "La première nuit, deux joueurs ainsi qu'un rôle Sbire spécifique sont indiqués à l'Enquêteur. Parmi ces deux joueurs se trouve ce rôle Sbire.",
 
+    "Fossoyeur": "Chaque nuit, si un joueur a été exécuté au vote lors de cette journée, le Fossoyeur apprendra l'identité de l'exécuté. Si le joueur exécuté était l'Ivrogne, le Fossoyeur verra le faux rôle attribué et non le role d'Ivrogne.",
 
-"Croque-mort":"Si le Croque-Mort meurt la nuit, il se réveille alors pour désigner un joueur dont il apprendra l'identité. Il peut désigner un joueur mort.",
+    "Lavandiere": "La première nuit, deux joueurs ainsi qu'un rôle Citadin spécifique sont indiqués à la Lavandière. Parmi ces deux joueurs se trouve ce rôle Citadin.",
 
+    "Maire": "Si le Maire est ciblé par le Diablotin la nuit, un joueur à coté de lui mourra à sa place",
 
-"Cuistot":"La première nuit, le Chef est mis au courant du nombre de \"paires\" de Démons autour de la table. Est considérée comme \"paire\" : deux Démons côte à côte. Si trois Démons sont d'affilée, alors il y a deux paires. Si aucun Démon n'est à côté d'un autre, alors il y a 0 paire.",
+    "Moine": "Chaque nuit, le Moine choisit un joueur autre que lui-même. Ce joueur ne peut pas mourir par le Démon cette nuit. Il peut choisir le même joueur plusieurs fois d'affilée",
 
+    "Pourfendeur": "Une fois par partie, pendant la journée, le Pourfendeur peut désigner une cible avec la commande /pourfendre [nomDeLaCible] . Si cette cible est le Diablotin, le Diablotin meurt. Si cette cible n'est pas le Diablotin, rien ne se passe.",
 
-"Empathe":"Chaque nuit, l'Empathe apprend le nombre de Méchants directement à côté d'elle (0, 1 ou 2). Les joueurs morts ne sont pas pris en compte.",
+    "Soldat": "Le Soldat ne peut pas mourir du Diablotin la nuit. S'il est ciblé, rien ne se passe.",
 
+    "Vierge": "Si la Vierge est nommée au vote et que le joueur qui l'a designée est un Citadin (Étrangers exclus), ce joueur est instantanément exécuté. Cette situation ne peut se produire qu'une fois.",
 
-"Enqueteur":"La première nuit, deux joueurs ainsi qu'un rôle Sbire spécifique sont indiqués à l'Enquêteur. Parmi ces deux joueurs se trouve ce rôle Sbire.",
+    "Voyante": "Chaque nuit, la Voyante choisit un joueur, elle obtiendra alors deux roles dont celui du joueur choisit",
 
+    "Ivrogne": "L'Ivrogne ne sait pas qu'il l'est. Il croit être un rôle Citadin tout le long, mais ses pouvoirs sont en réalité inexistants. S'il se croit rôle à info, à chaque fois qu'il reçoit ses infos, le MJ lui en donne des aléatoires, Pour les autres rôles à info, il apparaît comme étant le rôle faussement attribué et non comme l'Ivrogne (sauf pour l'Archiviste et le Fossoyeur).",
 
-"Fossoyeur":"Chaque nuit, si un joueur a été exécuté au vote lors de cette journée, le Fossoyeur apprendra l'identité de l'exécuté. Si le joueur exécuté était l'Ivrogne, le Fossoyeur verra le faux rôle attribué et non le role d'Ivrogne.",
+    "Majordome": "Chaque nuit, il désigne son Maître. Le vote du majordome se dirigera automatiquement vers la cible de son maitre",
 
+    "Reclus": "Si le reclus est désigné au vote, il ne pourra pas voter à ce vote",
 
-"Lavandiere":"La première nuit, deux joueurs ainsi qu'un rôle Citadin spécifique sont indiqués à la Lavandière. Parmi ces deux joueurs se trouve ce rôle Citadin.",
+    "Saint": "Si le Saint est exécuté au vote, les Citadins perdent instantanément la partie."}
 
+#dictionnaire associant le camp des joueurs à leur noms
+RoleCamps = {
+    "Diablotin": "Sbire",
+    "Baron": "Sbire",
+    "Empoisonneur": "Sbire",
+    "Espion": "Sbire",
+    "Femme ecarlate": "Sbire",
+    "Archiviste": "Citadin",
+    "Croque-mort": "Citadin",
+    "Cuistot": "Citadin",
+    "Empathe": "Citadin",
+    "Enqueteur": "Citadin",
+    "Fossoyeur": "Citadin",
+    "Lavandiere": "Citadin",
+    "Maire": "Citadin",
+    "Moine": "Citadin",
+    "Pourfendeur": "Citadin",
+    "Soldat": "Citadin",
+    "Vierge": "Citadin",
+    "Voyante": "Citadin",
+    "Ivrogne": "Etranger",
+    "Majordome": "Etranger",
+    "Reclus": "Etranger",
+    "Saint": "Etranger"}
 
-"Maire":"Si le Maire est ciblé par le Diablotin la nuit, un joueur à coté de lui mourra à sa place",
-
-
-"Moine":"Chaque nuit, le Moine choisit un joueur autre que lui-même. Ce joueur ne peut pas mourir par le Démon cette nuit. Il peut choisir le même joueur plusieurs fois d'affilée",
-
-
-"Pourfendeur":"Une fois par partie, pendant la journée, le Pourfendeur peut désigner une cible avec la commande /pourfendre [nomDeLaCible] . Si cette cible est le Diablotin, le Diablotin meurt. Si cette cible n'est pas le Diablotin, rien ne se passe.",
-
-
-"Soldat":"Le Soldat ne peut pas mourir du Diablotin la nuit. S'il est ciblé, rien ne se passe.",
-
-
-"Vierge":"Si la Vierge est nommée au vote et que le joueur qui l'a designée est un Citadin (Étrangers exclus), ce joueur est instantanément exécuté. Cette situation ne peut se produire qu'une fois.",
-
-
-"Voyante":"Chaque nuit, la Voyante choisit un joueur, elle obtiendra alors deux roles dont celui du joueur choisit",
-
-
-"Ivrogne":"L'Ivrogne ne sait pas qu'il l'est. Il croit être un rôle Citadin tout le long, mais ses pouvoirs sont en réalité inexistants. S'il se croit rôle à info, à chaque fois qu'il reçoit ses infos, le MJ lui en donne des aléatoires, Pour les autres rôles à info, il apparaît comme étant le rôle faussement attribué et non comme l'Ivrogne (sauf pour l'Archiviste et le Fossoyeur).",
-
-"Majordome":"Chaque nuit, il désigne son Maître. Le vote du majordome se dirigera automatiquement vers la cible de son maitre",
-
-
-"Reclus":"Si le reclus est désigné au vote, il ne pourra pas voter à ce vote",
-
-
-"Saint":"Si le Saint est exécuté au vote, les Citadins perdent instantanément la partie."}
-
-
-RoleCamps={
-    "Diablotin":"Sbire",
-    "Baron":"Sbire",
-    "Empoisonneur":"Sbire",
-    "Espion":"Sbire",
-    "Femme ecarlate":"Sbire",
-    "Archiviste":"Citadin",
-    "Croque-mort":"Citadin",
-    "Cuistot":"Citadin",
-    "Empathe":"Citadin",
-    "Enqueteur":"Citadin",
-    "Fossoyeur":"Citadin",
-    "Lavandiere":"Citadin",
-    "Maire":"Citadin",
-    "Moine":"Citadin",
-    "Pourfendeur":"Citadin",
-    "Soldat":"Citadin",
-    "Vierge":"Citadin",
-    "Voyante":"Citadin",
-    "Ivrogne":"Etranger",
-    "Majordome":"Etranger",
-    "Reclus":"Etranger",
-    "Saint":"Etranger"}
-
+#classe correspondant au données des joueurs
 class PlayerData:
     def __init__(self, name, adress, port, socket):
         self.name = name
@@ -106,12 +88,7 @@ class PlayerData:
         self.port = port
         self.socket = socket
 
-
-
-
-
-
-
+#classe correspondant à un choix
 class Choice:
     def __init__(self, type, plys, strs, instruct, time):
         self.id = "choix" + str(randint(0, 1000))
@@ -121,7 +98,6 @@ class Choice:
         self.strs = strs
         self.instruct = instruct
         self.time = time
-        
 
         """
         type = 1 -> choix de joueur, ne pas considérer la liste str
@@ -135,7 +111,7 @@ class Choice:
 
 
     def to_dict(self):
-        #convertit en dictionnaire pour json pour socket
+        # convertit en dictionnaire pour json pour socket
         return {
             "action": "choice",
             "id": self.id,
@@ -145,25 +121,18 @@ class Choice:
             "timeout": self.time
         }
 
+    #envoie le choix aux joueurs
     def run(self, game):
         game.choices.append(self)
         data = self.to_dict()
-        json_data = json.dumps(data)+ "\n"
+        json_data = json.dumps(data) + "\n"
         for p in self.plys:
             p.socket.send(json_data.encode('utf-8'))
 
 
-
+    #récupère les réponses du choix
     def getAnswers(self):
         return self.answer
-
-
-
-
-
-
-
-
 
 
 class Game:
@@ -171,7 +140,6 @@ class Game:
         self.id = id
         self.plysData = {}
         for name, sock in connected_clients.items():
-
             addr, port = sock.getpeername()
 
             self.plysData[name] = PlayerData(name, addr, port, sock)
@@ -190,35 +158,46 @@ class Game:
         self.viergeDesigner = ""
 
         self.rolesLists = {
-        1:["Diablotin"],
-        2:["Diablotin", "Enqueteur"],
-        3:["Diablotin", "Enqueteur", "Cuistot"],
-        4:["Diablotin", "Enqueteur", "Cuistot", "Empathe"],
-        5:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur"],
-        6:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur"],
-        7:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere"],
-        8:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Maire"],
-        9:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Maire", "Soldat"],
-        10:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint","Ivrogne", "Baron"],
-        11:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint","Ivrogne", "Baron","Pourfendeur"],
-        12:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint","Ivrogne", "Baron","Pourfendeur", "Moine"],
-        13:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint","Ivrogne", "Baron","Pourfendeur", "Moine", "Espion"],
-        14:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint","Ivrogne", "Baron","Pourfendeur", "Moine", "Espion", "Majordome"],
-        15:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint","Ivrogne", "Baron","Pourfendeur", "Moine", "Espion", "Majordome", "Voyante"],
-        16:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint","Ivrogne", "Baron","Pourfendeur", "Moine", "Espion", "Majordome", "Voyante", "Vierge"],
-        17:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint","Ivrogne", "Baron","Pourfendeur", "Moine", "Espion", "Majordome", "Voyante", "Vierge", "Maire"],
-        18:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint","Ivrogne", "Baron","Pourfendeur", "Moine", "Espion", "Majordome", "Voyante", "Vierge", "Maire", "Croque-mort"],
-        19:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint","Ivrogne", "Baron","Pourfendeur", "Moine", "Espion", "Majordome", "Voyante", "Vierge", "Maire", "Croque-mort", "Reclus"],
-        20:["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint","Ivrogne", "Baron","Pourfendeur", "Moine", "Espion", "Majordome", "Voyante", "Vierge", "Maire", "Croque-mort", "Reclus", "Archiviste"]
+            1: ["Diablotin"],
+            2: ["Diablotin", "Enqueteur"],
+            3: ["Diablotin", "Enqueteur", "Cuistot"],
+            4: ["Diablotin", "Enqueteur", "Cuistot", "Empathe"],
+            5: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur"],
+            6: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur"],
+            7: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere"],
+            8: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Maire"],
+            9: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Maire",
+                "Soldat"],
+            10: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint",
+                 "Ivrogne", "Baron"],
+            11: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint",
+                 "Ivrogne", "Baron", "Pourfendeur"],
+            12: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint",
+                 "Ivrogne", "Baron", "Pourfendeur", "Moine"],
+            13: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint",
+                 "Ivrogne", "Baron", "Pourfendeur", "Moine", "Espion"],
+            14: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint",
+                 "Ivrogne", "Baron", "Pourfendeur", "Moine", "Espion", "Majordome"],
+            15: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint",
+                 "Ivrogne", "Baron", "Pourfendeur", "Moine", "Espion", "Majordome", "Voyante"],
+            16: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint",
+                 "Ivrogne", "Baron", "Pourfendeur", "Moine", "Espion", "Majordome", "Voyante", "Vierge"],
+            17: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint",
+                 "Ivrogne", "Baron", "Pourfendeur", "Moine", "Espion", "Majordome", "Voyante", "Vierge", "Maire"],
+            18: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint",
+                 "Ivrogne", "Baron", "Pourfendeur", "Moine", "Espion", "Majordome", "Voyante", "Vierge", "Maire",
+                 "Croque-mort"],
+            19: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint",
+                 "Ivrogne", "Baron", "Pourfendeur", "Moine", "Espion", "Majordome", "Voyante", "Vierge", "Maire",
+                 "Croque-mort", "Reclus"],
+            20: ["Diablotin", "Enqueteur", "Cuistot", "Empathe", "Empoisonneur", "Fossoyeur", "Lavandiere", "Saint",
+                 "Ivrogne", "Baron", "Pourfendeur", "Moine", "Espion", "Majordome", "Voyante", "Vierge", "Maire",
+                 "Croque-mort", "Reclus", "Archiviste"]
         }
         self.schedule = {}
 
-
-
-
-
-    def to_chatDict(self, str, isFromSystem, fromPlayer = "", private = False):
-        """Convertit l'objet en dictionnaire pour le JSON"""
+    def to_chatDict(self, str, isFromSystem, fromPlayer="", private=False):
+        #Convertit l'objet en dictionnaire pour le JSON
         return {
             "action": "chat",
             "content": str,
@@ -227,16 +206,15 @@ class Game:
 
         }
 
+    def chat(self, players, str, isFromSystem, fromPlayer="", private=False):
+        for p in players:
+            # ici j'ai refait pareil que l'envoie de donnée dans Choice mais en une seule ligne histoire d'économiser
 
-    def chat(self, players, str, isFromSystem, fromPlayer = "", private = False):
-       for p in players:
-           #ici j'ai refait pareil que l'envoie de donnée dans Choice mais en une seule ligne histoire d'économiser
+            if p in self.plysData:
+                self.plysData[p].socket.send(
+                    (json.dumps(self.to_chatDict(str, isFromSystem, fromPlayer, private)) + "\n").encode())
 
-           if p in self.plysData:
-
-               self.plysData[p].socket.send((json.dumps(self.to_chatDict(str, isFromSystem, fromPlayer, private))+ "\n").encode())
-
-
+    #fonctions non utilisée pour ajouter un joueur
     def join(self, name, adress, port, socket):
         for ply in self.plys:
             if self.plysData[ply].adress == adress and self.plysData[ply].port == port:
@@ -245,8 +223,7 @@ class Game:
                 self.plys.append(name)
                 self.plysData[name] = PlayerData(name, adress, port, socket)
 
-
-
+    #gère les données envoyées par le client
     def handle_client_messages(self, player_name, conn):
 
         while True:
@@ -258,8 +235,7 @@ class Game:
 
                 msg_data = json.loads(data)
 
-
-                #on traite que les messages de type "chat"
+                # on traite que les messages de type "chat"
                 if msg_data.get("action") == "chat":
 
                     print("data is type chat")
@@ -274,14 +250,15 @@ class Game:
                             if not self.statuts[player_name]:
                                 self.chat([player_name], "Vous ne pouvez effectuer cette commande en étant mort", True)
                             else:
-                                self.chat(self.plys, "Le joueur "+ player_name+ " a désigné le joueur "+ target_name, True)
+                                self.chat(self.plys, "Le joueur " + player_name + " a désigné le joueur " + target_name,
+                                          True)
                                 self.designed[target_name] = True
 
                                 if self.roles[target_name] == "Vierge":
                                     self.viergeDesigner = player_name
 
                     elif content.startswith("/pourfendre"):
-                        #on sépare le premier mot
+                        # on sépare le premier mot
                         parts = content.split(" ", 11)
                         target_name = parts[0][1:]  # On enlève le "/"
 
@@ -289,20 +266,22 @@ class Game:
                             if not self.statuts[player_name]:
                                 self.chat([player_name], "Vous ne pouvez effectuer cette commande en étant mort", True)
                             elif self.roles[target_name] == "Diablotin":
-                                self.chat(self.plys, "Le joueur "+ player_name + " était pourfendeur et a trouvé le diablotin "+ target_name+ ", la partie est donc gagné par les citadins", True)
+                                self.chat(self.plys,
+                                          "Le joueur " + player_name + " était pourfendeur et a trouvé le diablotin " + target_name + ", la partie est donc gagné par les citadins",
+                                          True)
                                 self.finished = True
                             else:
                                 self.chat([player_name], "Mauvaise pioche !", True)
 
                     elif content.startswith("/"):
-                        #on sépare le premier mot
+                        # on sépare le premier mot
                         parts = content.split(" ", 1)
                         target_name = parts[0][1:]  # On enlève le "/"
 
                         if target_name in self.plysData:
                             message_prive = parts[1] if len(parts) > 1 else "..."
 
-                            #envoie le message aux deux joueurs
+                            # envoie le message aux deux joueurs
                             self.chat([target_name], message_prive, False, fromPlayer=f"(Privé) {player_name}")
                             self.chat([player_name], message_prive, False, fromPlayer=f"À {target_name}")
 
@@ -312,15 +291,15 @@ class Game:
 
                     # si pas privé public
                     else:
-                        #envoyer à tout le monde
+                        # envoyer à tout le monde
                         print("envoi de: ", content)
 
                         self.chat(self.plys, content, True, player_name)
 
                 elif msg_data.get("action") == "choiceAnswer":
                     print("choice answer")
-                    print("id: "+ msg_data.get("id"))
-                    print("answer: "+msg_data.get("answer"))
+                    print("id: " + msg_data.get("id"))
+                    print("answer: " + msg_data.get("answer"))
 
                     choix = self.getChoice(msg_data.get("id"))
                     if not choix == None and not choix == '':
@@ -330,24 +309,24 @@ class Game:
                 print(e)
                 break
 
-
     def start(self):
         self.chat(self.plys, "La partie commence: ", True, "")
         self.chat(self.plys, "Attribution des rôles ", True, "")
 
-
-
-
-        #distribution des rôles
+        # distribution des rôles
         rolesCopie = []
 
         for r in self.rolesLists[len(self.plys)]:
             rolesCopie.append(r)
 
+
+
         for ply in self.plys:
             x = randint(0, len(rolesCopie) - 1)
             self.roles[ply] = rolesCopie[x]
             print(rolesCopie[x] + " for " + ply)
+
+            #si le joueur est ivrogne, lui attribuer un autre role et l'empoisonner
             if self.roles[ply] == "Ivrogne":
                 rolesIvrogne = ["Archiviste", "Croque-Mort", "Cuistot", "Empathe", "Enqueteur", "Fossoyeur",
                                 "Lavandiere", "Voyante"]
@@ -358,77 +337,84 @@ class Game:
             self.chat([ply], (roleDes[self.roles[ply]]), True, "")
             rolesCopie.pop(x)
 
-
         for ply in self.plys:
-
-
-
-
 
             # Information du Diablotin au début du jeu
             if self.roles[ply] == "Diablotin":
 
-
-                role1 = self.rolesLists[len(self.plys)][randint(0,len(self.rolesLists[len(self.plys)]) -1)]
-                role2 = self.rolesLists[len(self.plys)][randint(0,len(self.rolesLists[len(self.plys)]) -1)]
-                role3 = self.rolesLists[len(self.plys)][randint(0,len(self.rolesLists[len(self.plys)]) -1)]
-                self.chat([ply], ("Dans la game il y a les roles: " + role1 + "; "+ role2 + "; "+ role3), False, "")
+                role1 = self.rolesLists[len(self.plys)][randint(0, len(self.rolesLists[len(self.plys)]) - 1)]
+                role2 = self.rolesLists[len(self.plys)][randint(0, len(self.rolesLists[len(self.plys)]) - 1)]
+                role3 = self.rolesLists[len(self.plys)][randint(0, len(self.rolesLists[len(self.plys)]) - 1)]
+                self.chat([ply], ("Dans la game il y a les roles: " + role1 + "; " + role2 + "; " + role3), False, "")
 
 
             # Information de l'Archiviste au début du jeu
             elif self.roles[ply] == "Archiviste":
                 for p in self.plys:
 
-
-
                     if RoleCamps[self.roles[p]] == "Etranger":
                         name = self.plys[randint(0, len(self.plys))]
 
-                        #fausse information si l'archiviste est empoisonné
+                        # fausse information si l'archiviste est empoisonné
                         if self.poisonned[ply] == True:
                             name2 = self.plys[randint(0, len(self.plys))]
-                            self.chat([ply], ("Le role "+ self.roles[p] + " appartient à "+ name + " ou "+ name2), True, "", True)
+                            self.chat([ply], ("Le role " + self.roles[p] + " appartient à " + name + " ou " + name2),
+                                      True, "", True)
                         else:
 
-                            #fait apparaitre les deux noms de manière aléatoire pour éviter que les joueurs sache lequel est le vrai role
+                            # fait apparaitre les deux noms de manière aléatoire pour éviter que les joueurs sache lequel est le vrai role
                             if randint(0, 100) > 50:
-                                self.chat([ply], ("Le role "+ self.roles[p] + " appartient à "+ name + " ou "+ p), True, "", True)
+                                self.chat([ply], ("Le role " + self.roles[p] + " appartient à " + name + " ou " + p),
+                                          True, "", True)
                             else:
-                                self.chat([ply], ("Le role "+ self.roles[p] + " appartient à "+ p + " ou "+ name), True, "", True)
+                                self.chat([ply], ("Le role " + self.roles[p] + " appartient à " + p + " ou " + name),
+                                          True, "", True)
+
+            #donne tous les roles à l'espion
             elif self.roles[ply] == "Espion":
                 for k in self.plys:
+                    self.chat([ply], ("Le joueur " + k + " est " + self.roles[k]), True)
 
-                    self.chat([ply], ("Le joueur "+ k + " est "+self.roles[k]))
             elif self.roles[ply] == "Cuistot":
+                #Information du Cuistot
+
                 x = 0
                 for p in self.plys:
-                    if RoleCamps[self.roles[ply]] == "Sbire" and self.plys.index(p) +1<=len(self.plys) and self.plys.index(p) > 0 and RoleCamps[self.plys[self.plys.index(p) +1]] == "Sbire" and not RoleCamps[self.plys[self.plys.index(p) -1]]:
-                        x = x +1
+                    if RoleCamps[self.roles[ply]] == "Sbire" and self.plys.index(p) + 1 <= len(
+                            self.plys) and self.plys.index(p) > 0 and RoleCamps[
+                        self.plys[self.plys.index(p) + 1]] == "Sbire" and not RoleCamps[
+                        self.plys[self.plys.index(p) - 1]]:
+                        x = x + 1
                 if self.poisonned[ply]:
-                    self.chat([ply], ("Le nombre de paires est de " + "0"),True)
+                    self.chat([ply], ("Le nombre de paires est de " + "0"), True)
 
                 else:
-                    self.chat([ply], ("Le nombre de paires est de " + str(x)),True)
+                    self.chat([ply], ("Le nombre de paires est de " + str(x)), True)
             elif self.roles[ply] == "Enqueteur":
+                #Information de l'enqueteur
+
                 for p in self.plys:
 
-
-
                     if RoleCamps[self.roles[p]] == "Sbire" and not self.roles[p] == "Espion":
-                        name = self.plys[randint(0, len(self.plys) -1)]
+                        name = self.plys[randint(0, len(self.plys) - 1)]
 
-                        #fausse information si l'enqueteur est empoisonné
+                        # fausse information si l'enqueteur est empoisonné
                         if self.poisonned[ply] == True:
                             name2 = self.plys[randint(0, len(self.plys))]
-                            self.chat([ply], ("Le role "+ self.roles[p] + " appartient à "+ name + " ou "+ name2), True, "", True)
+                            self.chat([ply], ("Le role " + self.roles[p] + " appartient à " + name + " ou " + name2),
+                                      True, "", True)
                         else:
 
-                            #fait apparaitre les deux noms de manière aléatoire pour éviter que les joueurs sache lequel est le vrai role
+                            # fait apparaitre les deux noms de manière aléatoire pour éviter que les joueurs sache lequel est le vrai role
                             if randint(0, 100) > 50:
-                                self.chat([ply], ("Le role "+ self.roles[p] + " appartient à "+ name + " ou "+ p), True, "", True)
+                                self.chat([ply], ("Le role " + self.roles[p] + " appartient à " + name + " ou " + p),
+                                          True, "", True)
                             else:
-                                self.chat([ply], ("Le role "+ self.roles[p] + " appartient à "+ p + " ou "+ name), True, "", True)
+                                self.chat([ply], ("Le role " + self.roles[p] + " appartient à " + p + " ou " + name),
+                                          True, "", True)
             elif self.roles[ply] == "Lavandiere":
+
+                #information de la lavandière
                 for p in self.plys:
 
                     if RoleCamps[self.roles[p]] == "Citadin":
@@ -449,16 +435,14 @@ class Game:
                                 self.chat([ply], ("Le role " + self.roles[p] + " appartient à " + p + " ou " + name),
                                           True, "", True)
 
-
-
             self.statuts[ply] = True
 
 
+            #envoie la liste des joueurs à tous les joueurs
             self.plysData[ply].socket.send((json.dumps({
                 "action": "players",
                 "list": self.plys
-            } )+ "\n").encode())
-
+            }) + "\n").encode())
 
         # Lancer l'écoute pour chaque joueur
         for name in self.plys:
@@ -466,12 +450,11 @@ class Game:
             t.daemon = True  # Le thread se stoppe si le programme principal s'arrête
             t.start()
 
+        self.chat(self.plys, "La première nuit adviendra dans 10 secondes", True)
+        self.schedule[time.time()] = (10, "night", self.nightNb)
 
 
-        self.night()
-
-
-
+        #vérifie jusqu'à la fin de la partie s'il faut executer une action avec le schedule
         while not self.finished:
             time.sleep(1)  # pour pas faire surchauffer le pc
             current_t = time.time()
@@ -486,13 +469,13 @@ class Game:
                         self.plysData[ply].socket.send((json.dumps({
                             "action": "phase",
                             "value": "night"
-                        })+ "\n").encode())
+                        }) + "\n").encode())
                     elif self.schedule[k][1] == "day":
                         self.day()
                         self.plysData[ply].socket.send((json.dumps({
                             "action": "phase",
                             "value": "day"
-                        })+ "\n").encode())
+                        }) + "\n").encode())
                     elif self.schedule[k][1] == "vote":
                         self.vote()
                     elif self.schedule[k][1] == "voteEnd":
@@ -500,18 +483,16 @@ class Game:
 
                     del self.schedule[k]
 
-
-
-
-
-
-
     def nightAct(self, role, ply):
+
+        #choix des différents roles
         if role == "Diablotin":
-            c = Choice(1, [self.plysData[ply]], ["1", "2", "3"], "Choisissez un joueur à éliminer (choix de role)", PHASE_TIME)
+            c = Choice(1, [self.plysData[ply]], ["1", "2", "3"], "Choisissez un joueur à éliminer (choix de role)",
+                       PHASE_TIME)
             self.roleChoiceId["Diablotin"] = c
             c.run(self)
         elif role == "Empoisonneur":
+
             if self.isChoiceValid("Empoisonneur"):
                 self.poisonned = False
             c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur à empoisonner (choix de role)", PHASE_TIME)
@@ -523,32 +504,34 @@ class Game:
             self.roleChoiceId["Moine"] = c
             c.run(self)
         elif role == "Croque-Mort":
-            c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur dont vous connaitrez l'identité si vous venez à mourir de la main du Diablotin (choix de role)", PHASE_TIME)
+            c = Choice(1, [self.plysData[ply]], [],
+                       "Choisissez un joueur dont vous connaitrez l'identité si vous venez à mourir de la main du Diablotin (choix de role)",
+                       PHASE_TIME)
             self.roleChoiceId["Croque"] = c
             c.run(self)
         elif role == "Voyante":
-            c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur à observer, vous obtiendrez deux roles dont le siens (choix de role)", PHASE_TIME)
+            c = Choice(1, [self.plysData[ply]], [],
+                       "Choisissez un joueur à observer, vous obtiendrez deux roles dont le siens (choix de role)",
+                       PHASE_TIME)
             self.roleChoiceId["Voyante"] = c
             c.run(self)
         elif role == "Majordome":
-            c = Choice(1, [self.plysData[ply]], [], "Choisissez un joueur qui sera votre maitre au prochain vote (choix de role)", PHASE_TIME)
+            c = Choice(1, [self.plysData[ply]], [],
+                       "Choisissez un joueur qui sera votre maitre au prochain vote (choix de role)", PHASE_TIME)
             self.roleChoiceId["Majordome"] = c
             c.run(self)
         elif role == "Empathe":
             x = 0
             if self.plys.index(ply) > 0 and self.roles[self.plys[self.plys.index(ply) - 1]]:
                 x = x + 1
-            if self.plys.index(ply) < len(self.plys)-1 and self.roles[self.plys[self.plys.index(ply) - 1]]:
+            if self.plys.index(ply) < len(self.plys) - 1 and self.roles[self.plys[self.plys.index(ply) - 1]]:
                 x = x + 1
 
-
             if self.poisonned[ply]:
-                self.chat([ply], ("Il y a "+ "0" + " sbires autours de vous."), True)
+                self.chat([ply], ("Il y a " + "0" + " sbires autours de vous."), True)
 
             else:
-                self.chat([ply], ("Il y a "+ str(x) + " sbires autours de vous."), True)
-
-
+                self.chat([ply], ("Il y a " + str(x) + " sbires autours de vous."), True)
 
     def night(self):
 
@@ -556,11 +539,12 @@ class Game:
             self.nightAct(self.roles[ply], ply)
 
         self.nightNb = self.nightNb + 1
-        self.schedule[time.time()] = (12, "day", self.nightNb)
+        self.schedule[time.time()] = (PHASE_TIME, "day", self.nightNb)
 
-
+    #vérifie si le role dont le nom est la var choice possède un choix valide avec la réponse
     def isChoiceValid(self, choice):
-        if choice in self.roleChoiceId and not list(self.roleChoiceId[choice].answer.values())[0] == None and not list(self.roleChoiceId[choice].answer.values())[0] ==  '':
+        if choice in self.roleChoiceId and not list(self.roleChoiceId[choice].answer.values())[0] == None and not \
+        list(self.roleChoiceId[choice].answer.values())[0] == '':
             return True
         else:
             return False
@@ -570,33 +554,26 @@ class Game:
         if self.isChoiceValid("Diablotin"):
             ply = list(self.roleChoiceId["Diablotin"].answer.values())[0]
 
-
-
-
-
-            #Annuler la mort si protégé par le moine
+            # Annuler la mort si protégé par le moine
             if self.isChoiceValid("Moine") and list(self.roleChoiceId["Moine"].answer.values())[0] == ply:
-
                 print("protected by Moine")
                 return
 
-            #dévier la mort si le joueur visé est maire
+            # dévier la mort si le joueur visé est maire
             if self.roles[ply] == "Maire":
                 if self.plys.index(ply) + 1 < len(self.plys):
                     ply = self.plys[self.plys.index(ply) + 1]
                 elif self.plys.index(ply) > 0:
                     ply = self.plys[self.plys.index(ply) - 1]
                 else:
-                    self.chat([ply] , "Il n'y a pas de joueur pouvant etre tué à votre place" ,  True)
+                    self.chat([ply], "Il n'y a pas de joueur pouvant etre tué à votre place", True)
 
             if not self.roles[ply] == "Soldat":
-
 
                 self.statuts[ply] = False
                 self.onDied(ply)
 
-
-                #Donne le lead des sbire à la femme écarlate si le diablotin se vise lui meme (et si celle ci est encore en vie)
+                # Donne le lead des sbire à la femme écarlate si le diablotin se vise lui meme (et si celle ci est encore en vie)
                 ecar = False
                 for p in self.plys:
                     if self.statuts[p] and self.roles[p] == "Femme ecarlate":
@@ -604,48 +581,49 @@ class Game:
                 if self.roles[ply] == "Diablotin" and not self.ecarlate == True and ecar:
                     self.ecarlate = True
 
-
-                #Donne un role au croque mort s'il est tué par le diablotin et s'il a fait un choix
+                # Donne un role au croque mort s'il est tué par le diablotin et s'il a fait un choix
                 if self.roles[ply] == "Croque-Mort":
                     if self.isChoiceValid("Croque"):
                         if not self.poisonned[ply]:
-                            self.chat([ply],("Le joueur "+ list(self.roleChoiceId["Croque"].answer.values())[0] + " est "+ self.roles[list(self.roleChoiceId["Croque"].answer.values())[0]]) )
+                            self.chat([ply], (
+                                        "Le joueur " + list(self.roleChoiceId["Croque"].answer.values())[0] + " est " +
+                                        self.roles[list(self.roleChoiceId["Croque"].answer.values())[0]]))
                         else:
-                            self.chat([ply],("Le joueur "+ list(self.roleChoiceId["Croque"].answer.values())[0] + " est "+ self.rolesLists[20][randint(0, len(self.rolesLists[20]))]))
+                            self.chat([ply], (
+                                        "Le joueur " + list(self.roleChoiceId["Croque"].answer.values())[0] + " est " +
+                                        self.rolesLists[20][randint(0, len(self.rolesLists[20]))]))
 
 
 
         else:
-            self.chat(self.plys, ("Le diablotin n'a pas fait de victime") ,True)
+            self.chat(self.plys, ("Le diablotin n'a pas fait de victime"), True)
 
         if self.isChoiceValid("Empoisonneur"):
             player = list(self.roleChoiceId["Empoisonneur"].answer.values())[0]
             self.poisonned[player] = True
 
-        if self.isChoiceValid("Voyante") and not list(self.roleChoiceId["Voyante"].answer.keys())[0] == None and not list(self.roleChoiceId["Voyante"].answer.keys())[0] == '':
+        if self.isChoiceValid("Voyante") and not list(self.roleChoiceId["Voyante"].answer.keys())[0] == None and not  list(self.roleChoiceId["Voyante"].answer.keys())[0] == '':
             player = list(self.roleChoiceId["Voyante"].answer.keys())[0]
             target = list(self.roleChoiceId["Voyante"].answer.values())[0]
             roleSec = self.roles[self.plys[randint(0, len(self.plys) - 1)]]
             roleTer = self.roles[self.plys[randint(0, len(self.plys) - 1)]]
 
-
-
             if self.poisonned[player]:
                 if randint(0, 100) > 50:
-                    self.chat([player], "Le role du joueur "+ target + " est soit "+ roleSec + " soit "+ roleTer, True)
+                    self.chat([player], "Le role du joueur " + target + " est soit " + roleSec + " soit " + roleTer,
+                              True)
                 else:
-                    self.chat([player], "Le role du joueur "+ target + " est soit "+ roleTer + " soit "+ roleSec, True)
+                    self.chat([player], "Le role du joueur " + target + " est soit " + roleTer + " soit " + roleSec,
+                              True)
             else:
                 if randint(0, 100) > 50:
-                    self.chat([player], "Le role du joueur "+ target + " est soit "+ roleSec + " soit "+ self.roles[target], True)
+                    self.chat([player],
+                              "Le role du joueur " + target + " est soit " + roleSec + " soit " + self.roles[target],
+                              True)
                 else:
-                    self.chat([player], "Le role du joueur "+ target + " est soit "+ self.roles[target] + " soit "+ roleSec, True)
-
-
-
-
-
-
+                    self.chat([player],
+                              "Le role du joueur " + target + " est soit " + self.roles[target] + " soit " + roleSec,
+                              True)
 
     def day(self):
 
@@ -658,15 +636,13 @@ class Game:
 
         self.schedule[time.time()] = (PHASE_TIME, "vote", self.nightNb)
 
-
-
-
-
+    #renvoie le choix dont l'id est id
     def getChoice(self, id):
         for c in self.choices:
             if c.id == id:
                 return c
 
+#lance le vote
     def vote(self):
 
         self.chat(self.plys, "Les votes commencent, veuillez choisir qui mourra ce matin: ", True, "")
@@ -674,11 +650,10 @@ class Game:
         votes = Choice(1, [self.plysData[p] for p in self.plys], [], "Choisissez un joueur à éliminer", PHASE_TIME)
         votes.run(self)
 
-
         self.schedule[time.time()] = (PHASE_TIME, "voteEnd", votes.id)
 
 
-
+    #mort d'un joueur ply
     def onDied(self, ply):
 
         self.chat(self.plys, ("Le joueur " + ply + " est mort"), True)
@@ -708,31 +683,27 @@ class Game:
             self.chat(self.plys, ("Il ne reste plus de citadin, les sbire ont gagnés"), True, "")
             self.finished = True
 
-
         self.plysData[ply].socket.send((json.dumps({
-                            "action": "death"
-                        })+ "\n").encode('utf-8'))
+            "action": "death"
+        }) + "\n").encode('utf-8'))
 
 
-
-
-
-
-
-
+    #fin des votes, mort du plus voté
     def endVote(self, id):
         global RoleCamps
         voted = {}
         for k in self.getChoice(id).answer.keys():
 
-            #vérifie si le role du votant est majordome
+            # vérifie si le role du votant est majordome
             if self.roles[k] == "Majordome":
-                #si le joueur désigné par le majordome n'est pas null
+                # si le joueur désigné par le majordome n'est pas null
                 if self.isChoiceValid("Majordome"):
 
-                    #le choix du majordome devient celui de son maitre
-                    self.getChoice(id).answer[k] = self.getChoice(id).answer[list(self.roleChoiceId["Majordome"].answer.values())[0]]
-                    self.chat([k], "Vous voter pour la cible de votre maitre: "+ self.getChoice(id).answer[list(self.roleChoiceId["Majordome"].answer.values())[0]], True)
+                    # le choix du majordome devient celui de son maitre
+                    self.getChoice(id).answer[k] = self.getChoice(id).answer[
+                        list(self.roleChoiceId["Majordome"].answer.values())[0]]
+                    self.chat([k], "Vous voter pour la cible de votre maitre: " + self.getChoice(id).answer[
+                        list(self.roleChoiceId["Majordome"].answer.values())[0]], True)
 
 
                 else:
@@ -750,60 +721,58 @@ class Game:
                 else:
                     voted[self.getChoice(id).answer[k]] = 1
 
-                self.chat(self.plys, "Le joueur "+ k + " a voté pour "+ self.getChoice(id).answer[k], True)
+                self.chat(self.plys, "Le joueur " + k + " a voté pour " + self.getChoice(id).answer[k], True)
             else:
                 self.chat(self.plys, "Le joueur n'a pas voté", True)
-
 
         mostVoted = ""
         for ply in self.plys:
             if mostVoted == "" or voted[ply] > voted[mostVoted]:
                 mostVoted = ply
 
-
-
         ply = mostVoted
-        self.chat(self.plys, ("Les votes se finissent: ainsi le joueur exécuté sera: "+mostVoted), True, "")
+        self.chat(self.plys, ("Les votes se finissent: ainsi le joueur exécuté sera: " + mostVoted), True, "")
 
         if self.designed[ply]:
 
             self.onDied(ply)
 
             if self.roles[ply] == "Saint":
-                self.chat(self.plys, "Le joueur exécuté était Saint, les citadins perdent donc immédiatement la parie", True)
+                self.chat(self.plys, "Le joueur exécuté était Saint, les citadins perdent donc immédiatement la parie",
+                          True)
                 self.finished = True
 
             if self.roles[ply] == "Vierge":
                 if self.viergeDesigner in self.plys:
-
-                    self.chat(self.plys, "Le joueur voté était la Vierge, le joueur "+ self.viergeDesigner + " l'ayant désigné meurt donc avec.", True)
+                    self.chat(self.plys,
+                              "Le joueur voté était la Vierge, le joueur " + self.viergeDesigner + " l'ayant désigné meurt donc avec.",
+                              True)
                     self.onDied(ply)
-
 
             for p in self.plys:
                 if self.roles[p] == "Fossoyeur":
                     if self.poisonned[p]:
-                        self.chat([ply], ("Le joueur " + ply + " était "+ self.roles[self.plys[randint(0, len(self.plys) - 1)]]), True)
+                        self.chat([ply], ("Le joueur " + ply + " était " + self.roles[
+                            self.plys[randint(0, len(self.plys) - 1)]]), True)
 
                     else:
-                        self.chat([ply], ("Le joueur " + ply + " était "+ self.roles[ply]), True)
+                        self.chat([ply], ("Le joueur " + ply + " était " + self.roles[ply]), True)
         else:
-            self.chat(self.plys, "Le joueur le plus voté n'a pas été désigné préalablement, il ne sera donc pas executé")
-
-
+            self.chat(self.plys,
+                      "Le joueur le plus voté n'a pas été désigné préalablement, il ne sera donc pas executé")
 
         self.nightNb = self.nightNb + 1
-        self.night()
+        self.chat(self.plys, "La nuit adviendra dans 10 secondes", True)
+        self.schedule[time.time()] = (10, "night", self.nightNb)
 
 
 
-
-
+#Classe correspondant à un lobby d'attente de connexion des joueurs avant le début de la partie
 class ServerLobby:
     def __init__(self, host='0.0.0.0', port=5555):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind((host, port))
-        self.sock.listen(15)  #on autorise jusqu'à 15 connexions en attente
+        self.sock.listen(15)  # on autorise jusqu'à 15 connexions en attente
 
         self.clients = {}  # format: { "NomJoueur": socket_objet }
         self.is_accepting = True
@@ -823,15 +792,14 @@ class ServerLobby:
 
                 if player_name in self.clients:
                     # Erreur si le nom est déjà pris
-                    conn.send((json.dumps({"status": "error", "message": "Nom déjà pris"})+ "\n").encode())
+                    conn.send((json.dumps({"status": "error", "message": "Nom déjà pris"}) + "\n").encode())
                     conn.close()
                 else:
                     self.clients[player_name] = conn
                     print(f"[NOUVEAU] {player_name} s'est connecté ({addr[0]})")
 
-
-                    conn.send((json.dumps({"action": "chat", "isSystem": True,"status": "success", "content": "Bienvenue dans le salon d'attente de Blood on the Clocktower"}) + "\n").encode())
-
+                    conn.send((json.dumps({"action": "chat", "isSystem": True, "status": "success",
+                                           "content": "Bienvenue dans le salon d'attente de Blood on the Clocktower"}) + "\n").encode())
 
                     self.broadcast_system(f"{player_name} a rejoint le salon d'attente.")
 
@@ -852,10 +820,8 @@ class ServerLobby:
     def stop_accepting(self):
         """Ferme les portes du lobby une fois la partie lancée."""
         self.is_accepting = False
-        #on ne ferme pas la socket principale ici pour garder les joueurs,
-        #mais on arrête la boucle accept()
-
-
+        # on ne ferme pas la socket principale ici pour garder les joueurs,
+        # mais on arrête la boucle accept()
 
 
 # --- Initialisation ---
