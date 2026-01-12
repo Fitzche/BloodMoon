@@ -5,7 +5,7 @@ import socket
 import json
 import threading
 
-from win32con import TRUETYPE_FONTTYPE
+
 
 PHASE_TIME = 12
 
@@ -121,7 +121,7 @@ class Choice:
         self.strs = strs
         self.instruct = instruct
         self.time = time
-        self.ecarlate = False
+        
 
         """
         type = 1 -> choix de joueur, ne pas considérer la liste str
@@ -135,7 +135,7 @@ class Choice:
 
 
     def to_dict(self):
-        """Convertit l'objet en dictionnaire pour le JSON"""
+        #convertit en dictionnaire pour json pour socket
         return {
             "action": "choice",
             "id": self.id,
@@ -593,10 +593,7 @@ class Game:
 
 
                 self.statuts[ply] = False
-                self.chat(self.plys, ("Le joueur "+ ply + " est mort") ,True)
-                self.plysData[ply].socket.send((json.dumps({
-                                "action": "death"
-                            })+ "\n").encode('utf-8'))
+                self.onDied(ply)
 
 
                 #Donne le lead des sbire à la femme écarlate si le diablotin se vise lui meme (et si celle ci est encore en vie)
@@ -683,6 +680,8 @@ class Game:
 
 
     def onDied(self, ply):
+
+        self.chat(self.plys, ("Le joueur " + ply + " est mort"), True)
 
         self.statuts[ply] = False
         ecar = False
